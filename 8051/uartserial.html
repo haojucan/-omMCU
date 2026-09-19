@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UART SerialPort</title>
+<style>
+:root{
+  --bg:#0b1020; --panel:#121a2f; --panel2:#18223d; --text:#eaf0ff;
+  --muted:#9fb0d0; --accent:#65d1ff; --ok:#6ee7a8; --warn:#ffd166;
+  --danger:#ff7b8a; --line:#2b3a63; --code:#07101f;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:linear-gradient(180deg,#09101d,#0d1427 45%,#0a1020);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;line-height:1.72}
+a{color:var(--accent);text-decoration:none}
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:270px;padding:22px 18px;background:rgba(7,12,24,.96);border-right:1px solid var(--line);overflow:auto}
+.sidebar h1{font-size:18px;margin:0 0 8px}.sidebar p{color:var(--muted);font-size:13px;margin:0 0 16px}
+.sidebar a{display:block;padding:8px 10px;border-radius:9px;color:#cdd8ef;margin:3px 0}
+.sidebar a:hover{background:#17223d;color:white}
+main{margin-left:270px;max-width:1200px;padding:34px 42px 80px}
+.hero{padding:28px;border:1px solid var(--line);background:linear-gradient(135deg,#14213f,#11182c);border-radius:18px;margin-bottom:24px}
+.hero h2{font-size:34px;margin:0 0 12px}.hero p{font-size:17px;color:#c5d4ee;max-width:880px}
+.badge{display:inline-block;padding:5px 9px;border:1px solid #3c5b89;border-radius:999px;font-size:12px;margin-right:7px;color:#bfe8ff;background:#10233d}
+section{scroll-margin-top:20px;margin:28px 0;padding:24px;background:rgba(18,26,47,.82);border:1px solid var(--line);border-radius:16px}
+h2{margin-top:0;font-size:25px}h3{margin-top:22px;color:#d9e8ff}
+.note{padding:14px 16px;border-left:4px solid var(--accent);background:#0e1b31;border-radius:8px;margin:14px 0}
+.good{border-left-color:var(--ok)} .warn{border-left-color:var(--warn)}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.card{background:var(--panel2);border:1px solid #304263;border-radius:13px;padding:16px}
+.card b{color:white}.muted{color:var(--muted)}
+code,pre{font-family:Consolas,Menlo,monospace}
+pre{background:var(--code);padding:17px;border-radius:12px;overflow:auto;border:1px solid #223451;color:#d9f1ff}
+.hl{background:#2d4169!important;outline:2px solid var(--accent)}
+code.inline{background:#07101f;border:1px solid #23324d;border-radius:6px;padding:2px 6px}
+.bitrow{display:grid;grid-template-columns:repeat(8,1fr);gap:6px}
+.bit{padding:10px 5px;text-align:center;border:1px solid #3b4b6d;border-radius:9px;background:#111b31;cursor:pointer;user-select:none}
+.bit.on{background:#173c42;border-color:#55d2a2;color:#baffdf}
+.bit small{display:block;color:#9bb0d2;font-size:10px}
+.controls{display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin:15px 0}
+label{display:flex;flex-direction:column;gap:5px;color:#c9d5ec;font-size:13px}
+input,select,button{font:inherit}
+input,select{background:#091426;color:white;border:1px solid #314768;border-radius:8px;padding:8px 10px}
+input[type=range]{padding:0;width:210px}
+button{border:1px solid #3e5d8e;background:#18365d;color:white;border-radius:9px;padding:9px 14px;cursor:pointer}
+button:hover{background:#214b7d}.primary{background:#116b83;border-color:#2c9cb7}.danger{background:#6b2934}
+.kpi{font-size:28px;font-weight:700;color:#dff7ff}.kpi small{font-size:13px;color:var(--muted);font-weight:400}
+.frame{display:flex;gap:5px;overflow:auto;padding:12px 0}
+.frame .cell{min-width:72px;padding:14px 7px;border-radius:10px;text-align:center;border:1px solid #405374;background:#101a30;transition:.18s}
+.frame .cell.active{transform:translateY(-4px);background:#1c4f69;border-color:#6edcff;box-shadow:0 0 0 2px #15384d}
+.frame .cell .lv{font-size:26px;font-weight:800}.frame .cell small{display:block;color:#a8bad9}
+.signal{height:115px;background:#091325;border-radius:12px;border:1px solid #253b5d;padding:14px;position:relative}
+.signal svg{width:100%;height:100%}
+.wire{display:grid;grid-template-columns:1fr 110px 1fr;align-items:center;gap:12px}
+.device{padding:20px;text-align:center;background:#111c33;border:1px solid #38517c;border-radius:14px}
+.arrow{text-align:center;font-size:29px;color:var(--accent)}
+.flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.stepbox{padding:10px 12px;border:1px solid #3c4f72;border-radius:10px;background:#101a31}
+.flow .arr{color:var(--accent);font-size:20px}
+table{width:100%;border-collapse:collapse;margin:12px 0}th,td{border-bottom:1px solid #2d3d5d;padding:10px;text-align:left}th{color:#bfe8ff}
+.quiz button{margin:5px}.quiz-result{margin-top:10px;font-weight:700}
+.footer{color:#8193b1;font-size:13px;margin-top:30px}
+@media(max-width:900px){.sidebar{position:static;width:auto;border-right:0}.sidebar a{display:inline-block}.sidebar p{display:none}main{margin:0;padding:20px}.grid,.grid3{grid-template-columns:1fr}.hero h2{font-size:27px}}
+</style>
+</head>
+<body>
+<nav class="sidebar">
+  <h1>51 UART 交互教程</h1>
+  <p>以 STC89C52RC + Timer2 + 9600 baud 为主线。</p>
+  <a href="#big">1. 串口到底在做什么</a>
+  <a href="#wire">2. TXD / RXD 如何连接</a>
+  <a href="#frame">3. 一帧数据怎么发送</a>
+  <a href="#regs">4. T2CON / SCON 拆位</a>
+  <a href="#baud">5. 0xFFDC 为什么是 9600</a>
+  <a href="#putchar">6. putchar 逐步执行</a>
+  <a href="#rx">7. 接收数据怎么工作</a>
+  <a href="#full">8. 完整运行链路</a>
+  <a href="#quiz">9. 小测验</a>
+</nav>
+
+<main>
+<div class="hero">
+  <span class="badge">STC89C52RC</span><span class="badge">11.0592 MHz</span><span class="badge">12T</span><span class="badge">UART Mode 1</span>
+  <h2>51 单片机串口通信，是怎么“把一个字符变成电平”发出去的？</h2>
+  <p>不要把串口理解成“printf 神奇地把字发给电脑”。真正的过程是：<b>CPU 把 8 位数据写入 SBUF → UART 硬件自动加起始位/停止位 → 按波特率逐位从 TXD 发出 → 发送结束后 TI 置 1</b>。</p>
+</div>
+
+<section id="big">
+<h2>1. 先建立总模型：CPU 不负责一位一位地“抖引脚”</h2>
+<div class="flow">
+  <div class="stepbox">C代码<br><b>putchar('A')</b></div><div class="arr">→</div>
+  <div class="stepbox">写入<br><b>SBUF = 0x41</b></div><div class="arr">→</div>
+  <div class="stepbox">UART 发送移位寄存器</div><div class="arr">→</div>
+  <div class="stepbox">TXD(P3.1)<br>输出高低电平</div><div class="arr">→</div>
+  <div class="stepbox">对方 RXD<br>恢复成 0x41</div>
+</div>
+<div class="note good"><b>关键：</b>UART 是单片机里的专用硬件。CPU 只需要“交数据”和“看状态标志”，位级时序由 UART 外设完成。</div>
+</section>
+
+<section id="wire">
+<h2>2. TXD / RXD：两根数据线为什么要交叉？</h2>
+<div class="wire">
+  <div class="device"><b>STC89C52RC</b><br><br>TXD / P3.1<br>RXD / P3.0<br>GND</div>
+  <div class="arrow">TXD → RXD<br>←<br>RXD ← TXD<br>GND ─ GND</div>
+  <div class="device"><b>USB-TTL / 另一块 MCU</b><br><br>RXD<br>TXD<br>GND</div>
+</div>
+<div class="note warn">这里讨论的是 <b>TTL UART</b>。传统 PC 的真正 RS-232 电平不是同一种电平标准，不能直接硬接；通常需要 MAX232。USB-TTL 模块则常用 CH340、CP2102 等芯片。</div>
+</section>
+
+<section id="frame">
+<h2>3. UART 一帧数据如何发送：拖动 / 播放看看</h2>
+<p>方式 1 常见配置是 <b>8N1</b>：1 个起始位 + 8 个数据位 + 无校验 + 1 个停止位。数据位按 <b>LSB（最低位）先发</b>。</p>
+<div class="controls">
+  <label>字符
+    <input id="charInput" value="A" maxlength="1" style="width:80px">
+  </label>
+  <label>波特率
+    <select id="baudSelect"><option>9600</option><option>4800</option><option>19200</option><option>115200</option></select>
+  </label>
+  <button class="primary" onclick="buildFrame()">重新生成帧</button>
+  <button onclick="playFrame()">▶ 自动播放</button>
+  <button onclick="stepFrame()">单步 →</button>
+  <button class="danger" onclick="resetFrame()">复位</button>
+</div>
+<div id="frameCells" class="frame"></div>
+<div class="signal"><svg id="signalSvg" viewBox="0 0 1000 100" preserveAspectRatio="none"></svg></div>
+<div class="grid3" style="margin-top:14px">
+  <div class="card"><div class="kpi" id="hexOut">0x41</div><span class="muted">字符 ASCII / 字节值</span></div>
+  <div class="card"><div class="kpi" id="bitTime">104.17 µs</div><span class="muted">每一位持续时间</span></div>
+  <div class="card"><div class="kpi" id="frameTime">1.042 ms</div><span class="muted">8N1 一帧约 10 位</span></div>
+</div>
+<p id="frameExplain" class="note">空闲时 TXD 为高电平。发送开始时先拉低一个 bit 时间作为 Start bit。</p>
+</section>
+
+<section id="regs">
+<h2>4. 两个核心寄存器：点击 bit，可以观察含义变化</h2>
+
+<h3>T2CON = 0x34 = 0011 0100</h3>
+<p>从 bit7 到 bit0：</p>
+<div id="t2bits" class="bitrow"></div>
+<p id="t2desc" class="note"></p>
+
+<h3>SCON = 0x50 = 0101 0000</h3>
+<div id="sconbits" class="bitrow"></div>
+<p id="scondesc" class="note"></p>
+
+<div class="grid">
+<div class="card"><b>T2CON=0x34 的核心结果</b><br>RCLK=1、TCLK=1：接收和发送都选择 Timer2 作为波特率发生器。TR2=1：Timer2 开始运行。C/T2=0：内部时钟定时方式。</div>
+<div class="card"><b>SCON=0x50 的核心结果</b><br>SM0=0、SM1=1：串口方式1；REN=1：允许接收；TI=0、RI=0：初始没有“发送完成/接收完成”事件。</div>
+</div>
+</section>
+
+<section id="baud">
+<h2>5. 为什么 TH2/RCAP2H=0xFF、TL2/RCAP2L=0xDC 对应 9600？</h2>
+<pre>TH2 = RCAP2H = 0xFF;
+TL2 = RCAP2L = 0xDC;</pre>
+<p>高 8 位和低 8 位拼成：</p>
+<p class="kpi">0xFFDC = 65500</p>
+<p>Timer2 从 65500 一直向上数到 65535，再溢出。所需计数次数：</p>
+<p class="kpi">65536 - 65500 = 36 次</p>
+
+<div class="controls">
+<label>晶振 Fosc (Hz)
+<input id="fosc" type="number" value="11059200" min="1000000" step="100">
+</label>
+<label>RCAP2H
+<input id="rh" value="FF" maxlength="2" style="width:80px">
+</label>
+<label>RCAP2L
+<input id="rl" value="DC" maxlength="2" style="width:80px">
+</label>
+<button class="primary" onclick="calcBaud()">计算波特率</button>
+</div>
+<div class="grid3">
+<div class="card"><div class="kpi" id="reloadVal">65500</div><span class="muted">16位重装值</span></div>
+<div class="card"><div class="kpi" id="counts">36</div><span class="muted">到溢出的计数次数</span></div>
+<div class="card"><div class="kpi" id="baudOut">9600 baud</div><span class="muted">12T + Timer2 波特率</span></div>
+</div>
+<div class="note">
+公式（本教程当前条件）：<br>
+<b>Baud = Fosc ÷ [32 × (65536 - RCAP2)]</b><br><br>
+代入：11,059,200 ÷ (32 × 36) = <b>9600</b>。
+</div>
+<p><b>为什么 TH2/TL2 也要一起赋值？</b> RCAP2H/L 是“以后每次溢出时自动装回去的值”；TH2/TL2 是“现在计数器从哪里开始”。两组都初始化成 0xFFDC，第一次和之后每一次周期都一致。</p>
+</section>
+
+<section id="putchar">
+<h2>6. putchar() 到底发生了什么？逐行模拟</h2>
+<pre id="codeBox"><span data-line="0">char putchar(char c)</span>
+<span data-line="1">{</span>
+<span data-line="2">    SBUF = c;</span>
+<span data-line="3">    while(!TI);</span>
+<span data-line="4">    TI = 0;</span>
+<span data-line="5">    return c;</span>
+<span data-line="6">}</span></pre>
+
+<div class="controls">
+  <label>准备发送的字符 <input id="putChar" value="A" maxlength="1" style="width:80px"></label>
+  <button class="primary" onclick="putStep()">执行下一步</button>
+  <button onclick="putReset()">重新开始</button>
+</div>
+<div class="grid3">
+<div class="card"><b>SBUF</b><div class="kpi" id="sbufState">--</div></div>
+<div class="card"><b>TI</b><div class="kpi" id="tiState">0</div></div>
+<div class="card"><b>UART 状态</b><div class="kpi" id="uartState" style="font-size:20px">空闲</div></div>
+</div>
+<p id="putExplain" class="note">点击“执行下一步”，观察软件和 UART 硬件如何交接。</p>
+</section>
+
+<section id="rx">
+<h2>7. 接收方向正好反过来</h2>
+<div class="flow">
+  <div class="stepbox">RXD(P3.0)<br>检测到 Start=0</div><div class="arr">→</div>
+  <div class="stepbox">UART 按波特率采样<br>D0…D7</div><div class="arr">→</div>
+  <div class="stepbox">完整字节进入<br><b>SBUF</b></div><div class="arr">→</div>
+  <div class="stepbox"><b>RI = 1</b></div><div class="arr">→</div>
+  <div class="stepbox">程序读取 SBUF<br>再清 RI</div>
+</div>
+<div class="note good"><b>SBUF 有一个很容易忽略的点：</b>软件“写 SBUF”走发送通道，软件“读 SBUF”读接收通道。虽然程序看到的是同一个 SFR 名称，芯片内部发送缓冲和接收缓冲是不同的硬件路径。</div>
+<table>
+<tr><th>标志</th><th>谁置 1</th><th>什么时候置 1</th><th>软件通常怎么处理</th></tr>
+<tr><td>TI</td><td>UART 硬件</td><td>一帧发送完成</td><td>等待 TI，然后 TI=0</td></tr>
+<tr><td>RI</td><td>UART 硬件</td><td>一帧接收完成</td><td>读取 SBUF，然后 RI=0</td></tr>
+</table>
+</section>
+
+<section id="full">
+<h2>8. 把你的初始化代码串成一条完整因果链</h2>
+<pre>T2CON  = 0x34;
+TH2 = RCAP2H = 0xff;
+TL2 = RCAP2L = 0xdc;
+SCON = 0x50;
+
+char putchar(char c)
+{
+    SBUF = c;
+    while(!TI);
+    TI = 0;
+    return c;
+}</pre>
+
+<ol>
+<li><b>SCON=0x50</b>：UART 进入方式1，并允许接收。</li>
+<li><b>RCAP2=0xFFDC</b>：规定 Timer2 每次溢出后从 0xFFDC 重新开始数。</li>
+<li><b>T2CON=0x34</b>：启动 Timer2，并把 TX/RX 波特率时钟都切到 Timer2。</li>
+<li>当执行 <b>SBUF=c</b>，数据交给 UART。</li>
+<li>UART 自动输出 Start → D0…D7 → Stop。</li>
+<li>9600 baud 表示每秒 9600 个“位时间”；每 bit 约 104.17 µs。</li>
+<li>8N1 一帧 10 bit，所以理论上连续发送大约 <b>960 字节/秒</b>（未考虑软件间隔）。</li>
+<li>发送完成后硬件令 <b>TI=1</b>，while 循环退出。</li>
+<li>软件执行 <b>TI=0</b>，为下一次发送做准备。</li>
+</ol>
+
+<div class="note warn"><b>这版 putchar 是阻塞式发送。</b> 在字符没发完之前，CPU 卡在 <code class="inline">while(!TI);</code>。初学阶段很好理解；以后做实时任务时，可以改成“串口中断 + 环形缓冲区”的非阻塞发送。</div>
+</section>
+
+<section id="quiz" class="quiz">
+<h2>9. 小测验：检验是否真正建立模型</h2>
+<p><b>Q1：</b>执行 <code class="inline">SBUF='A'</code> 后，是 CPU 自己不断操作 P3.1 发送每一个 bit 吗？</p>
+<button onclick="quiz(this,false)">是</button><button onclick="quiz(this,true)">不是，是 UART 硬件完成</button>
+<div class="quiz-result"></div>
+
+<p><b>Q2：</b>9600 baud 下，一位大约持续多久？</p>
+<button onclick="quiz(this,true)">104.17 µs</button><button onclick="quiz(this,false)">9600 µs</button>
+<div class="quiz-result"></div>
+
+<p><b>Q3：</b><code class="inline">while(!TI);</code> 在等什么？</p>
+<button onclick="quiz(this,false)">等待接收到字符</button><button onclick="quiz(this,true)">等待当前发送帧完成</button>
+<div class="quiz-result"></div>
+</section>
+
+<div class="footer">
+参考：STC89C51RC/52RC 系列数据手册中 Timer2 波特率发生器、SCON/UART 说明；经典 8052 Timer2 baud generator 公式。页面为离线单文件，所有交互均在浏览器本地执行。
+</div>
+</main>
+
+<script>
+const t2Names=["TF2","EXF2","RCLK","TCLK","EXEN2","TR2","C/T2","CP/RL2"];
+const t2Help=[
+"Timer2 溢出标志。波特率发生器模式下，普通的 TH2 溢出不会用它来产生串口发送完成。",
+"T2EX 外部事件标志。",
+"接收时钟选择：1 = UART 接收波特率由 Timer2 提供。",
+"发送时钟选择：1 = UART 发送波特率由 Timer2 提供。",
+"T2EX 外部触发使能，本例为 0。",
+"Timer2 运行控制：1 = 启动计数。",
+"定时/计数选择：0 = 使用内部时钟；1 = 外部 T2 引脚计数。",
+"捕获/重装方式选择。本例配合波特率发生器工作。"
+];
+const sconNames=["SM0","SM1","SM2","REN","TB8","RB8","TI","RI"];
+const sconHelp=[
+"串口工作方式选择位 SM0。",
+"串口工作方式选择位 SM1。SM0=0、SM1=1 → Mode 1。",
+"多机通信相关控制，本例为 0。",
+"Receive Enable：1 = 允许 UART 从 RXD 接收。",
+"方式2/3中的发送第9位，本例方式1不用。",
+"方式2/3中的接收第9位，本例方式1不用。",
+"Transmit Interrupt：发送完成后由硬件置1。",
+"Receive Interrupt：接收完成后由硬件置1。"
+];
+
+function renderBits(containerId, value, names, helps, descId){
+  const root=document.getElementById(containerId); root.innerHTML="";
+  names.forEach((n,i)=>{
+    const b=(value>>(7-i))&1, div=document.createElement("div");
+    div.className="bit "+(b?"on":"");
+    div.innerHTML=`<b>${b}</b><small>bit${7-i}</small><span>${n}</span>`;
+    div.onclick=()=>document.getElementById(descId).innerHTML=`<b>${n}</b>：${helps[i]}`;
+    root.appendChild(div);
+  });
+  document.getElementById(descId).innerHTML=`点击任意 bit 查看含义。当前值：<b>0x${value.toString(16).padStart(2,"0").toUpperCase()}</b>。`;
+}
+renderBits("t2bits",0x34,t2Names,t2Help,"t2desc");
+renderBits("sconbits",0x50,sconNames,sconHelp,"scondesc");
+
+let frameBits=[], frameIndex=-1, timer=null;
+function buildFrame(){
+  clearInterval(timer); frameIndex=-1;
+  let ch=(document.getElementById("charInput").value||"A")[0];
+  const code=ch.charCodeAt(0)&0xff;
+  const data=[...Array(8)].map((_,i)=>(code>>i)&1);
+  frameBits=[{name:"Idle",v:1},{name:"Start",v:0},...data.map((v,i)=>({name:"D"+i,v})),{name:"Stop",v:1},{name:"Idle",v:1}];
+  document.getElementById("hexOut").textContent="0x"+code.toString(16).padStart(2,"0").toUpperCase();
+  const baud=Number(document.getElementById("baudSelect").value);
+  document.getElementById("bitTime").textContent=(1e6/baud).toFixed(2)+" µs";
+  document.getElementById("frameTime").textContent=(10e3/baud).toFixed(3)+" ms";
+  renderFrame();
+}
+function renderFrame(){
+  const root=document.getElementById("frameCells"); root.innerHTML="";
+  frameBits.forEach((b,i)=>{
+    const d=document.createElement("div"); d.className="cell"+(i===frameIndex?" active":"");
+    d.innerHTML=`<small>${b.name}</small><div class="lv">${b.v}</div>`;
+    root.appendChild(d);
+  });
+  drawSignal();
+  explainFrame();
+}
+function drawSignal(){
+  const svg=document.getElementById("signalSvg");
+  const n=frameBits.length, w=1000/n, y=v=>v?20:80;
+  let path=`M 0 ${y(frameBits[0]?.v||1)}`;
+  frameBits.forEach((b,i)=>{
+    const x=i*w;
+    if(i>0){path+=` V ${y(b.v)}`}
+    path+=` H ${(i+1)*w}`;
+  });
+  svg.innerHTML=`<path d="${path}" fill="none" stroke="#65d1ff" stroke-width="4"/><line x1="0" y1="50" x2="1000" y2="50" stroke="#263b5e" stroke-dasharray="8 8"/>`;
+}
+function explainFrame(){
+  const p=document.getElementById("frameExplain");
+  if(frameIndex<0){p.innerHTML="空闲时 TXD 为高电平。点击单步或自动播放。";return}
+  const b=frameBits[frameIndex];
+  const map={
+    "Idle":"线路空闲：UART 保持 TXD=1。",
+    "Start":"起始位：TXD 从 1 拉到 0，告诉接收方“新的一帧开始了”。",
+    "Stop":"停止位：TXD=1，表示本帧结束，并恢复空闲状态。"
+  };
+  p.innerHTML=map[b.name]||`${b.name}：当前数据位 = <b>${b.v}</b>。UART 方式1按 D0 → D7，也就是最低位先发送。`;
+}
+function stepFrame(){if(!frameBits.length)buildFrame();frameIndex=(frameIndex+1)%frameBits.length;renderFrame()}
+function playFrame(){
+  if(!frameBits.length)buildFrame(); clearInterval(timer); frameIndex=-1;
+  timer=setInterval(()=>{frameIndex++; if(frameIndex>=frameBits.length){clearInterval(timer);frameIndex=frameBits.length-1}renderFrame()},450);
+}
+function resetFrame(){clearInterval(timer);frameIndex=-1;renderFrame()}
+document.getElementById("baudSelect").addEventListener("change",buildFrame);
+buildFrame();
+
+function calcBaud(){
+  const f=Number(document.getElementById("fosc").value);
+  const h=parseInt(document.getElementById("rh").value,16);
+  const l=parseInt(document.getElementById("rl").value,16);
+  if([f,h,l].some(Number.isNaN)){alert("请输入有效值");return}
+  const reload=((h&255)<<8)|(l&255), cnt=65536-reload, baud=f/(32*cnt);
+  document.getElementById("reloadVal").textContent=reload;
+  document.getElementById("counts").textContent=cnt;
+  document.getElementById("baudOut").textContent=baud.toFixed(2)+" baud";
+}
+calcBaud();
+
+let putState=0;
+const putMsgs=[
+  "进入 putchar(c)。CPU 准备把字符交给 UART。",
+  "执行 SBUF = c：CPU 把 8 位数据写入发送缓冲。UART 随即开始生成 Start、8个数据位和 Stop。",
+  "来到 while(!TI)：当前 TI 仍为0，所以 CPU 在这里等待。注意：UART 硬件同时在后台继续发位。",
+  "一帧发送完成，UART 硬件自动把 TI 置1。while 条件不再成立，程序继续向下执行。",
+  "执行 TI = 0：软件主动清除发送完成标志，为下一帧做准备。",
+  "return c：putchar 返回，printf 等上层函数可以继续处理下一个字符。"
+];
+function clearHL(){document.querySelectorAll("#codeBox span").forEach(x=>x.classList.remove("hl"))}
+function putStep(){
+  const c=(document.getElementById("putChar").value||"A")[0], code=c.charCodeAt(0)&255;
+  clearHL();
+  const lineMap=[0,2,3,3,4,5], line=lineMap[putState]??5;
+  document.querySelector(`#codeBox span[data-line="${line}"]`).classList.add("hl");
+  if(putState===1){document.getElementById("sbufState").textContent="0x"+code.toString(16).padStart(2,"0").toUpperCase();document.getElementById("uartState").textContent="正在发送"}
+  if(putState===2){document.getElementById("tiState").textContent="0";document.getElementById("uartState").textContent="CPU等待 / UART发送"}
+  if(putState===3){document.getElementById("tiState").textContent="1";document.getElementById("uartState").textContent="一帧完成"}
+  if(putState===4){document.getElementById("tiState").textContent="0";document.getElementById("uartState").textContent="准备下一帧"}
+  if(putState===5){document.getElementById("uartState").textContent="putchar 返回"}
+  document.getElementById("putExplain").innerHTML=putMsgs[putState];
+  putState=Math.min(putState+1,5);
+}
+function putReset(){putState=0;clearHL();document.getElementById("sbufState").textContent="--";document.getElementById("tiState").textContent="0";document.getElementById("uartState").textContent="空闲";document.getElementById("putExplain").textContent="点击“执行下一步”，观察软件和 UART 硬件如何交接。"}
+
+function quiz(btn,ok){
+  const result=btn.parentElement.querySelectorAll(".quiz-result")[Array.from(btn.parentElement.querySelectorAll("button")).indexOf(btn) >= 2 ? 0 : 0];
+  let node=btn.nextElementSibling;
+  while(node && !node.classList.contains("quiz-result")) node=node.nextElementSibling;
+  if(!node){
+    const all=[...document.querySelectorAll(".quiz p")], p=btn.previousElementSibling;
+  }
+  // find next quiz-result in DOM
+  let n=btn;
+  while(n && !(n.classList && n.classList.contains("quiz-result"))) n=n.nextElementSibling;
+  if(n){n.textContent=ok?"✓ 正确":"✗ 再想一下"; n.style.color=ok?"#6ee7a8":"#ff7b8a";}
+}
+</script>
+</body>
+</html>

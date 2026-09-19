@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PN结交互式验证实验</title>
+<style>
+:root{
+  --bg:#f5f8fc; --card:#fff; --text:#1f2d3d; --muted:#607080;
+  --blue:#2f80ed; --orange:#ff9f43; --red:#e63946; --green:#2ca25f;
+  --purple:#7b61ff; --line:#dbe5ef; --dark:#23364d;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Microsoft YaHei UI","Segoe UI",Arial,sans-serif;background:linear-gradient(180deg,#eef5ff 0,#f7f9fc 100%);color:var(--text)}
+.container{max-width:1500px;margin:0 auto;padding:18px}
+.hero,.card{background:var(--card);border-radius:18px;box-shadow:0 8px 24px rgba(33,54,77,.08)}
+.hero{padding:22px 26px;margin-bottom:16px}
+h1,h2,h3{margin:0 0 10px}
+p{line-height:1.75;margin:8px 0}
+.grid{display:grid;grid-template-columns:340px 1fr;gap:16px}
+.card{padding:16px}
+.controls label{display:block;font-weight:700;margin:13px 0 7px}
+input[type=range]{width:100%}
+select{width:100%;padding:9px;border:1px solid var(--line);border-radius:9px;background:white}
+.readout{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}
+.metric{border:1px solid #e5edf5;border-radius:12px;padding:10px;background:#f9fbfd}
+.metric b{display:block;font-size:20px;color:#174d8c;margin-top:4px}
+.btnrow{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}
+button{border:none;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer;background:#0b84ff;color:white}
+button.alt{background:#eef4ff;color:#174d8c}
+.legend{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;font-size:13px}
+.legend div{padding:8px;border:1px solid #e5edf5;border-radius:10px;background:#fbfdff}
+.dot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:7px;vertical-align:middle}
+.note{border:1px solid #dce7f1;border-radius:12px;background:#f8fbff;padding:12px;margin-top:12px;line-height:1.65}
+.stage svg{width:100%;height:auto;display:block;border-radius:14px;background:linear-gradient(180deg,#fff,#f9fbff)}
+.bottom{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+.explain{border:1px solid #e4ecf4;border-radius:14px;padding:14px;background:#fbfdff}
+.big{font-size:21px;font-weight:800;color:#174d8c}
+.status{display:inline-block;padding:5px 10px;border-radius:999px;font-weight:800;font-size:13px}
+.status.forward{background:#e6f7ee;color:#167a45}.status.reverse{background:#fff0f0;color:#b52d35}.status.zero{background:#eef3f8;color:#566675}
+.checklist{display:grid;gap:8px;margin-top:10px}.check{padding:10px;border-radius:10px;background:#fff;border:1px solid #e5edf5}.ok{border-left:5px solid #2ca25f}.warn{border-left:5px solid #e2a400}
+.small{font-size:13px;color:var(--muted)}
+code{background:#eef3f7;padding:2px 5px;border-radius:6px}
+@media(max-width:1000px){.grid{grid-template-columns:1fr}.bottom{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="container">
+  <section class="hero">
+    <h1>PN 结交互式验证实验</h1>
+    <p>目标：验证你对 PN 结正向导电性的理解——<b>P 区接正、N 区接负时，外电场削弱内建电场，势垒降低、耗尽层变窄，多数载流子跨越结区，正向电流迅速增大。</b></p>
+    <p class="small">说明：这是“概念 + 简化数学模型”的教学模拟。载流子数量、耗尽层宽度和动画速度经过视觉缩放，不代表真实微观比例；电流曲线使用常见二极管指数模型作定性验证。</p>
+  </section>
+
+  <div class="grid">
+    <aside class="card controls">
+      <h2>实验控制</h2>
+      <label for="voltage">外加电压 V<sub>A</sub>（P 端相对 N 端）</label>
+      <input id="voltage" type="range" min="-1.2" max="0.85" step="0.01" value="0">
+      <div class="readout">
+        <div class="metric">外加电压<b id="vText">0.00 V</b></div>
+        <div class="metric">偏置状态<b id="biasText">零偏置</b></div>
+        <div class="metric">耗尽层相对宽度<b id="widthText">1.00×</b></div>
+        <div class="metric">相对电流<b id="iText">≈ 0</b></div>
+      </div>
+
+      <label for="temp">温度（影响指数电流）</label>
+      <input id="temp" type="range" min="0" max="80" step="1" value="25">
+      <div class="small">当前：<span id="tempText">25</span> °C</div>
+
+      <label for="viewMode">显示重点</label>
+      <select id="viewMode">
+        <option value="all">全部显示</option>
+        <option value="fields">重点看电场</option>
+        <option value="carriers">重点看载流子</option>
+        <option value="depletion">重点看耗尽层</option>
+      </select>
+
+      <div class="btnrow">
+        <button id="autoBtn">自动扫描电压</button>
+        <button id="pauseBtn" class="alt">暂停动画</button>
+        <button id="resetBtn" class="alt">复位</button>
+      </div>
+
+      <div class="legend">
+        <div><span class="dot" style="background:var(--orange)"></span>空穴 h⁺</div>
+        <div><span class="dot" style="background:var(--blue)"></span>电子 e⁻</div>
+        <div><span class="dot" style="background:var(--red)"></span>传统电流</div>
+        <div><span class="dot" style="background:var(--purple)"></span>电场箭头</div>
+      </div>
+
+      <div class="note">
+        <h3>先记住坐标约定</h3>
+        <p><b>P 区在左，N 区在右。</b></p>
+        <p>因此：<br>正向偏置：<code>P 接 +</code>，<code>N 接 −</code>；<br>反向偏置：<code>P 接 −</code>，<code>N 接 +</code>。</p>
+      </div>
+    </aside>
+
+    <main class="card stage">
+      <svg id="viz" viewBox="0 0 1080 820">
+        <defs>
+          <marker id="arrowRed" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#e63946"/></marker>
+          <marker id="arrowPurple" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#7b61ff"/></marker>
+          <marker id="arrowBlue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#2f80ed"/></marker>
+          <marker id="arrowOrange" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#ff9f43"/></marker>
+        </defs>
+
+        <text x="35" y="42" font-size="30" font-weight="800" fill="#174d8c">PN 结内部</text>
+        <text id="statusText" x="35" y="74" font-size="18" fill="#51667c">当前：零偏置</text>
+
+        <!-- power terminals -->
+        <g id="powerGroup">
+          <circle cx="130" cy="135" r="30" fill="#fff3f3" stroke="#e63946" stroke-width="3"/>
+          <text id="pTerminal" x="130" y="144" text-anchor="middle" font-size="28" font-weight="800" fill="#e63946">0</text>
+          <circle cx="950" cy="135" r="30" fill="#eef5ff" stroke="#2f80ed" stroke-width="3"/>
+          <text id="nTerminal" x="950" y="144" text-anchor="middle" font-size="28" font-weight="800" fill="#2f80ed">0</text>
+          <line x1="130" y1="165" x2="130" y2="215" stroke="#64778a" stroke-width="4"/>
+          <line x1="950" y1="165" x2="950" y2="215" stroke="#64778a" stroke-width="4"/>
+          <text x="85" y="100" font-size="17" fill="#6a7683">P 端电源</text>
+          <text x="905" y="100" font-size="17" fill="#6a7683">N 端电源</text>
+        </g>
+
+        <!-- semiconductor -->
+        <rect x="120" y="220" width="410" height="330" rx="18" fill="#ffe5cf" stroke="#ffb36d" stroke-width="2"/>
+        <rect x="550" y="220" width="410" height="330" rx="18" fill="#dfeaff" stroke="#84adff" stroke-width="2"/>
+        <text x="325" y="260" text-anchor="middle" font-size="34" font-weight="800" fill="#a85a16">P 区</text>
+        <text x="755" y="260" text-anchor="middle" font-size="34" font-weight="800" fill="#1f64ba">N 区</text>
+        <text x="325" y="290" text-anchor="middle" font-size="17" fill="#86552a">多数载流子：空穴 h⁺</text>
+        <text x="755" y="290" text-anchor="middle" font-size="17" fill="#315f91">多数载流子：电子 e⁻</text>
+
+        <!-- depletion region dynamic -->
+        <rect id="depletion" x="480" y="220" width="120" height="330" fill="#eef1f4" opacity="0.92" stroke="#8e9aa6" stroke-dasharray="7 6" stroke-width="2"/>
+        <text id="depletionText" x="540" y="340" text-anchor="middle" font-size="17" font-weight="700" fill="#5e6d79">耗尽层</text>
+        <text id="barrierText" x="540" y="365" text-anchor="middle" font-size="15" fill="#6b7784">势垒：中等</text>
+
+        <!-- fixed ions -->
+        <g id="ions"></g>
+
+        <!-- field arrows -->
+        <g id="fieldsGroup">
+          <text x="365" y="590" font-size="17" font-weight="700" fill="#6042c4">内建电场 Eᵢ：N → P</text>
+          <path id="builtInField" d="M 650 615 L 430 615" stroke="#7b61ff" stroke-width="6" fill="none" marker-end="url(#arrowPurple)"/>
+          <text id="externalFieldText" x="365" y="660" font-size="17" font-weight="700" fill="#6042c4">外电场 Eₐ：0</text>
+          <path id="externalField" d="M 540 685 L 540 685" stroke="#b49cff" stroke-width="6" fill="none" marker-end="url(#arrowPurple)"/>
+        </g>
+
+        <!-- carrier flow -->
+        <g id="carrierArrows">
+          <path id="holeArrow" d="M 280 400 L 470 400" stroke="#ff9f43" stroke-width="5" fill="none" marker-end="url(#arrowOrange)"/>
+          <text id="holeText" x="285" y="385" font-size="16" fill="#b5681d">空穴</text>
+          <path id="electronArrow" d="M 800 455 L 610 455" stroke="#2f80ed" stroke-width="5" fill="none" marker-end="url(#arrowBlue)"/>
+          <text id="electronText" x="735" y="440" font-size="16" fill="#245d9d">电子</text>
+        </g>
+        <g id="particles"></g>
+
+        <!-- conventional current -->
+        <g id="currentGroup">
+          <path id="currentArrow" d="M 300 735 L 780 735" stroke="#e63946" stroke-width="7" fill="none" marker-end="url(#arrowRed)"/>
+          <text id="currentText" x="540" y="720" text-anchor="middle" font-size="18" font-weight="800" fill="#b3202a">传统电流：≈ 0</text>
+        </g>
+
+        <!-- IV chart -->
+        <g id="chartGroup" transform="translate(725,570)">
+          <rect x="0" y="0" width="320" height="210" rx="12" fill="#fff" stroke="#d8e3ee"/>
+          <text x="14" y="24" font-size="16" font-weight="700" fill="#23364d">伏安特性（示意）</text>
+          <line x1="25" y1="175" x2="300" y2="175" stroke="#718194" stroke-width="1.6"/>
+          <line x1="155" y1="35" x2="155" y2="195" stroke="#718194" stroke-width="1.6"/>
+          <text x="284" y="194" font-size="12" fill="#667789">V</text>
+          <text x="163" y="48" font-size="12" fill="#667789">I</text>
+          <path id="ivCurve" d="M25 179 C80 179 120 178 150 177 C170 176 190 173 210 165 C235 150 250 120 264 80 C275 48 286 35 299 30" stroke="#2ca25f" stroke-width="3" fill="none"/>
+          <circle id="workPoint" cx="155" cy="175" r="6" fill="#e63946" stroke="#fff" stroke-width="2"/>
+          <text id="workLabel" x="164" y="165" font-size="12" fill="#b3202a">工作点</text>
+        </g>
+      </svg>
+
+      <div class="bottom">
+        <section class="explain">
+          <h3>当前物理状态</h3>
+          <div id="stateBadge" class="status zero">零偏置</div>
+          <p id="stateExplain">没有外加电压。PN 结仍存在内建电场和内建势垒，耗尽层保持自然宽度，宏观净电流接近 0。</p>
+          <div class="checklist">
+            <div id="checkField" class="check">① 外电场是否削弱内建电场？</div>
+            <div id="checkWidth" class="check">② 耗尽层是否变窄？</div>
+            <div id="checkCarrier" class="check">③ 多数载流子是否更容易跨结？</div>
+            <div id="checkCurrent" class="check">④ 正向电流是否快速增大？</div>
+          </div>
+        </section>
+
+        <section class="explain">
+          <h3>你可以这样验证</h3>
+          <p class="big">把电压从 0 V 慢慢拖到 +0.8 V</p>
+          <p>观察四个同步变化：</p>
+          <ol>
+            <li><b>外电场方向</b>变为 P → N，与内建电场 N → P 相反。</li>
+            <li><b>耗尽层变窄</b>，势垒降低。</li>
+            <li><b>空穴向右、电子向左</b>跨越 PN 结。</li>
+            <li><b>传统电流 P → N</b>迅速增大，伏安曲线工作点进入指数上升区。</li>
+          </ol>
+          <p class="small">再把电压拖到负值，可以对比反向偏置：外电场与内建电场同向，耗尽层变宽，多数载流子更难跨结，仅有很小反向电流。</p>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const svgNS = 'http://www.w3.org/2000/svg';
+const state = {v:0,temp:25,running:true,auto:false,t:0,particles:[]};
+
+function diodeCurrent(v,tempC){
+  const T = tempC + 273.15;
+  const k = 1.380649e-23, q = 1.602176634e-19;
+  const Vt = k*T/q;
+  const n = 1.8;
+  const Is25 = 1e-12;
+  const Is = Is25 * Math.pow(2, (tempC-25)/10);
+  const expo = Math.min(35, v/(n*Vt));
+  return Is*(Math.exp(expo)-1);
+}
+function formatCurrent(I){
+  const a=Math.abs(I);
+  if(a<1e-12) return '≈ 0 A';
+  if(a<1e-9) return (I*1e12).toFixed(2)+' pA';
+  if(a<1e-6) return (I*1e9).toFixed(2)+' nA';
+  if(a<1e-3) return (I*1e6).toFixed(2)+' µA';
+  if(a<1) return (I*1e3).toFixed(2)+' mA';
+  return I.toFixed(2)+' A';
+}
+function depletionFactor(v){
+  // visual-only normalized factor: forward narrows, reverse widens
+  if(v>=0) return Math.max(0.22, 1 - 0.82*(v/0.85));
+  return Math.min(1.9, 1 + 0.72*(Math.abs(v)/1.2));
+}
+function makeParticle(kind,phase,lane){
+  const g=document.createElementNS(svgNS,'g');
+  const c=document.createElementNS(svgNS,'circle');
+  c.setAttribute('r',7); c.setAttribute('fill',kind==='hole'?'#ff9f43':'#2f80ed');
+  const t=document.createElementNS(svgNS,'text');
+  t.setAttribute('text-anchor','middle'); t.setAttribute('font-size','11'); t.setAttribute('font-weight','700'); t.setAttribute('fill','#fff'); t.setAttribute('dy','4');
+  t.textContent=kind==='hole'?'h':'e'; g.appendChild(c); g.appendChild(t); $('particles').appendChild(g);
+  return {g,kind,phase,lane};
+}
+function initParticles(){
+  $('particles').innerHTML=''; state.particles=[];
+  for(let i=0;i<7;i++) state.particles.push(makeParticle('hole',i/7,0));
+  for(let i=0;i<7;i++) state.particles.push(makeParticle('electron',i/7+.07,1));
+}
+function initIons(){
+  const g=$('ions'); g.innerHTML='';
+  for(let y=315;y<=505;y+=38){
+    const p=document.createElementNS(svgNS,'text'); p.setAttribute('x','505'); p.setAttribute('y',y); p.setAttribute('font-size','18'); p.setAttribute('font-weight','800'); p.setAttribute('fill','#d47b2b'); p.textContent='−'; g.appendChild(p);
+    const n=document.createElementNS(svgNS,'text'); n.setAttribute('x','568'); n.setAttribute('y',y); n.setAttribute('font-size','18'); n.setAttribute('font-weight','800'); n.setAttribute('fill','#376fb3'); n.textContent='+'; g.appendChild(n);
+  }
+}
+function lerp(a,b,t){return a+(b-a)*t}
+function drawParticles(){
+  const v=state.v;
+  const mag=Math.min(1,Math.max(0,(v-0.15)/0.55));
+  const reverseMag=Math.min(1,Math.max(0,(-v-0.1)/0.9));
+  state.particles.forEach((p,idx)=>{
+    let tt=(state.t*0.00035*(0.35+2.2*mag)+p.phase)%1;
+    let x,y;
+    if(v>0.12){
+      if(p.kind==='hole'){ x=lerp(250,680,tt); y=390 + (p.lane?0:0) + (idx%3)*9; }
+      else { x=lerp(830,400,tt); y=455 + (idx%3)*9; }
+      p.g.style.opacity=String(0.45+0.55*mag);
+    } else if(v<-0.12){
+      // majority carriers pulled away from junction
+      tt=(state.t*0.00018+p.phase)%1;
+      if(p.kind==='hole'){ x=lerp(430,190,tt); y=390+(idx%3)*9; }
+      else { x=lerp(650,900,tt); y=455+(idx%3)*9; }
+      p.g.style.opacity=String(0.4+0.35*reverseMag);
+    } else {
+      // small thermal random-ish motion near each side
+      const s=Math.sin(state.t*0.002+p.phase*10)*18;
+      if(p.kind==='hole'){x=300+s+(idx%4)*25;y=390+(idx%3)*9;}
+      else {x=760+s-(idx%4)*25;y=455+(idx%3)*9;}
+      p.g.style.opacity='0.45';
+    }
+    p.g.setAttribute('transform',`translate(${x},${y})`);
+  });
+}
+function update(){
+  const v=state.v, I=diodeCurrent(v,state.temp), wf=depletionFactor(v);
+  $('vText').textContent=v.toFixed(2)+' V'; $('tempText').textContent=state.temp;
+  $('widthText').textContent=wf.toFixed(2)+'×'; $('iText').textContent=formatCurrent(I);
+
+  const w=120*wf, x=540-w/2; $('depletion').setAttribute('x',x); $('depletion').setAttribute('width',w); $('depletionText').setAttribute('x',540); $('barrierText').setAttribute('x',540);
+  const bias=v>0.05?'正向偏置':v<-0.05?'反向偏置':'零偏置'; $('biasText').textContent=bias; $('statusText').textContent='当前：'+bias;
+
+  if(v>0.05){
+    $('pTerminal').textContent='+'; $('nTerminal').textContent='−';
+    $('externalFieldText').textContent='外电场 Eₐ：P → N（对抗内建电场）';
+    $('externalField').setAttribute('d','M 430 685 L 650 685');
+    $('barrierText').textContent='势垒：降低';
+    $('holeArrow').setAttribute('d','M 280 400 L 650 400');
+    $('electronArrow').setAttribute('d','M 800 455 L 430 455');
+    $('holeText').textContent='空穴：P → N'; $('electronText').textContent='电子：N → P';
+    $('currentArrow').setAttribute('d','M 300 735 L 700 735');
+    $('currentText').textContent='传统电流：P → N，快速增大';
+    $('stateBadge').className='status forward'; $('stateBadge').textContent='正向偏置';
+    $('stateExplain').innerHTML='P 区电势高于 N 区。外电场方向为 <b>P → N</b>，与内建电场 <b>N → P</b> 相反，因此净势垒降低，耗尽层变窄，多数载流子更容易跨结。';
+    ['checkField','checkWidth','checkCarrier','checkCurrent'].forEach(id=>$(id).className='check ok');
+    $('checkField').textContent='✓ 外电场与内建电场反向，削弱势垒';
+    $('checkWidth').textContent='✓ 耗尽层随正向电压增大而变窄';
+    $('checkCarrier').textContent='✓ 空穴向 N 区、电子向 P 区注入';
+    $('checkCurrent').textContent='✓ 正向电流按指数规律快速增大';
+  } else if(v<-0.05){
+    $('pTerminal').textContent='−'; $('nTerminal').textContent='+';
+    $('externalFieldText').textContent='外电场 Eₐ：N → P（加强内建电场）';
+    $('externalField').setAttribute('d','M 650 685 L 430 685');
+    $('barrierText').textContent='势垒：升高';
+    $('holeArrow').setAttribute('d','M 430 400 L 250 400');
+    $('electronArrow').setAttribute('d','M 650 455 L 830 455');
+    $('holeText').textContent='空穴被拉离结区'; $('electronText').textContent='电子被拉离结区';
+    $('currentArrow').setAttribute('d','M 700 735 L 620 735');
+    $('currentText').textContent='传统电流：仅很小反向电流';
+    $('stateBadge').className='status reverse'; $('stateBadge').textContent='反向偏置';
+    $('stateExplain').innerHTML='P 区接负、N 区接正。外电场方向与内建电场同向，使势垒升高、耗尽层变宽，多数载流子被拉离结区，因此几乎不导电。';
+    $('checkField').className='check warn'; $('checkWidth').className='check warn'; $('checkCarrier').className='check warn'; $('checkCurrent').className='check warn';
+    $('checkField').textContent='反向时：外电场加强内建电场';
+    $('checkWidth').textContent='反向时：耗尽层变宽';
+    $('checkCarrier').textContent='多数载流子更难跨结';
+    $('checkCurrent').textContent='只剩很小的反向饱和电流（未模拟击穿）';
+  } else {
+    $('pTerminal').textContent='0'; $('nTerminal').textContent='0';
+    $('externalFieldText').textContent='外电场 Eₐ：0'; $('externalField').setAttribute('d','M 540 685 L 540 685');
+    $('barrierText').textContent='势垒：自然状态';
+    $('holeArrow').setAttribute('d','M 320 400 L 400 400'); $('electronArrow').setAttribute('d','M 760 455 L 680 455');
+    $('holeText').textContent='空穴：热运动'; $('electronText').textContent='电子：热运动';
+    $('currentArrow').setAttribute('d','M 500 735 L 580 735'); $('currentText').textContent='传统电流：≈ 0';
+    $('stateBadge').className='status zero'; $('stateBadge').textContent='零偏置';
+    $('stateExplain').textContent='没有外加电压。PN 结仍存在内建电场和势垒，扩散与漂移在宏观上达到动态平衡，净电流接近 0。';
+    ['checkField','checkWidth','checkCarrier','checkCurrent'].forEach(id=>$(id).className='check');
+    $('checkField').textContent='① 外电场为 0，只有内建电场'; $('checkWidth').textContent='② 耗尽层保持自然宽度'; $('checkCarrier').textContent='③ 两侧载流子存在热运动'; $('checkCurrent').textContent='④ 宏观净电流接近 0';
+  }
+
+  // visual intensity
+  const fwd=Math.min(1,Math.max(0,(v-0.1)/0.65));
+  $('holeArrow').style.opacity=String(0.25+0.75*(v>0?fwd:0.45)); $('electronArrow').style.opacity=$('holeArrow').style.opacity;
+  $('currentArrow').style.opacity=String(v>0.05?0.35+0.65*fwd:(v<-0.05?0.35:0.2));
+
+  // work point mapping
+  const cx=155 + (v/1.2)*120;
+  const normI = I>0 ? Math.min(1, Math.log10(1+I/1e-12)/10) : -0.02;
+  const cy = I>=0 ? 175 - normI*140 : 179;
+  $('workPoint').setAttribute('cx',Math.max(28,Math.min(298,cx))); $('workPoint').setAttribute('cy',Math.max(30,Math.min(188,cy)));
+  $('workLabel').setAttribute('x',Math.max(35,Math.min(260,cx+8))); $('workLabel').setAttribute('y',Math.max(42,Math.min(190,cy-8)));
+
+  const mode=$('viewMode').value;
+  $('fieldsGroup').style.opacity = mode==='carriers'?0.18:1;
+  $('carrierArrows').style.opacity = mode==='fields'?0.18:1;
+  $('particles').style.opacity = mode==='fields'?0.22:1;
+  $('depletion').style.opacity = mode==='depletion'?1:0.92;
+}
+
+function animate(ts){
+  if(state.running){state.t=ts; drawParticles();}
+  if(state.auto){
+    const cyc=(ts%9000)/9000;
+    const v=-1.0 + 1.8*(0.5-0.5*Math.cos(cyc*Math.PI*2));
+    state.v=Math.max(-1.0,Math.min(0.8,v)); $('voltage').value=state.v; update();
+  }
+  requestAnimationFrame(animate);
+}
+
+$('voltage').addEventListener('input',e=>{state.v=parseFloat(e.target.value);state.auto=false;$('autoBtn').textContent='自动扫描电压';update();});
+$('temp').addEventListener('input',e=>{state.temp=parseFloat(e.target.value);update();});
+$('viewMode').addEventListener('change',update);
+$('pauseBtn').addEventListener('click',()=>{state.running=!state.running;$('pauseBtn').textContent=state.running?'暂停动画':'继续动画';});
+$('autoBtn').addEventListener('click',()=>{state.auto=!state.auto;$('autoBtn').textContent=state.auto?'停止自动扫描':'自动扫描电压';});
+$('resetBtn').addEventListener('click',()=>{state.v=0;state.temp=25;state.auto=false;state.running=true;$('voltage').value=0;$('temp').value=25;$('viewMode').value='all';$('autoBtn').textContent='自动扫描电压';$('pauseBtn').textContent='暂停动画';update();});
+
+initParticles();initIons();update();requestAnimationFrame(animate);
+</script>
+</body>
+</html>

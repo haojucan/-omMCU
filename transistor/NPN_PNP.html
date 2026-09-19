@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NPN / PNP 三极管开灯交互实验</title>
+<style>
+:root{
+  --bg:#eef4fb;--card:#fff;--text:#1e2b3a;--muted:#607083;--blue:#2f80ed;
+  --red:#e5484d;--orange:#ff9f43;--green:#28a36a;--border:#dbe6f2;--dark:#29425f;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Microsoft YaHei UI","Segoe UI",Arial,sans-serif;background:linear-gradient(180deg,#eaf2fb,#f8fbff);color:var(--text)}
+.wrap{max-width:1450px;margin:0 auto;padding:20px}
+.hero,.side,.main{background:var(--card);border:1px solid var(--border);border-radius:18px;box-shadow:0 10px 28px rgba(30,55,85,.08)}
+.hero{padding:22px 26px;margin-bottom:18px}.hero h1{margin:0 0 8px;font-size:30px}.hero p{margin:0;line-height:1.75;color:var(--muted)}
+.grid{display:grid;grid-template-columns:340px 1fr;gap:18px}.side{padding:18px}.main{padding:18px}
+label{display:block;font-weight:800;margin:14px 0 7px}.side select,.side input[type=range]{width:100%}.side select{padding:10px;border:1px solid var(--border);border-radius:10px;background:white;font-size:15px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.value{font-weight:800;color:#154f91}.btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+button{border:0;border-radius:10px;padding:10px 14px;font-weight:800;cursor:pointer;background:#177ddc;color:#fff}button.secondary{background:#edf4fd;color:#23548a}
+.card{border:1px solid var(--border);background:#f9fcff;border-radius:14px;padding:13px;margin-top:14px}.card h3{margin:0 0 8px;font-size:17px}.card p,.card li{line-height:1.65}.card ul{padding-left:20px;margin:7px 0}.badge{display:inline-block;padding:4px 9px;border-radius:999px;background:#edf5ff;color:#1e65b2;font-size:13px;margin:4px 5px 0 0}
+.legend{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px}.leg{padding:9px;border:1px solid var(--border);border-radius:10px;background:#fff}.dot{width:11px;height:11px;border-radius:50%;display:inline-block;margin-right:7px}.dred{background:var(--red)}.dblue{background:var(--blue)}.dorange{background:var(--orange)}.dgreen{background:var(--green)}
+svg{width:100%;height:auto;display:block;background:linear-gradient(180deg,#fff,#f8fbff);border-radius:14px}
+.explain{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}.big{font-size:22px;font-weight:900;color:#154f91}.kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}.kpi .box{border:1px solid var(--border);border-radius:12px;padding:10px;background:#fff}.kpi .n{font-size:20px;font-weight:900}.small{font-size:13px;color:var(--muted)}
+@media(max-width:1000px){.grid{grid-template-columns:1fr}.explain{grid-template-columns:1fr}.kpi{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="hero">
+    <h1>NPN / PNP 三极管“开灯”交互实验</h1>
+    <p>拖动“基极控制”滑块，观察灯泡亮灭、传统电流方向、电子方向、基极驱动和三极管箭头。这个页面重点不是背公式，而是把“谁控制谁、为什么电流这样走、为什么箭头这样画”变成可视化。</p>
+  </section>
+
+  <div class="grid">
+    <aside class="side">
+      <h2 style="margin-top:0">实验控制</h2>
+      <label>三极管类型</label>
+      <select id="type">
+        <option value="NPN">NPN：低端开关</option>
+        <option value="PNP">PNP：高端开关</option>
+      </select>
+
+      <label id="controlLabel">基极电压 VB（相对 GND）</label>
+      <input id="control" type="range" min="0" max="5" step="0.1" value="0" />
+      <div class="row"><span>当前：</span><span class="value" id="controlValue">0.0 V</span></div>
+
+      <label>动画速度</label>
+      <input id="speed" type="range" min="0.3" max="2.5" step="0.1" value="1" />
+      <div class="row"><span>当前：</span><span class="value" id="speedValue">1.0×</span></div>
+
+      <div class="btns">
+        <button id="toggle">暂停动画</button>
+        <button class="secondary" id="demo">自动演示</button>
+        <button class="secondary" id="reset">重置</button>
+      </div>
+
+      <div class="card">
+        <h3>当前判断</h3>
+        <div class="big" id="stateText">NPN 截止，灯灭</div>
+        <p id="stateExplain">NPN 的 E 接地。只有当 B 比 E 高约 0.7V 左右时，B-E 发射结才明显正向导通。</p>
+      </div>
+
+      <div class="card">
+        <h3>图例</h3>
+        <div class="legend">
+          <div class="leg"><span class="dot dred"></span>传统电流</div>
+          <div class="leg"><span class="dot dblue"></span>电子 e⁻</div>
+          <div class="leg"><span class="dot dorange"></span>空穴 h⁺</div>
+          <div class="leg"><span class="dot dgreen"></span>导通 PN 结</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>先记这两句</h3>
+        <ul>
+          <li><b>NPN：</b>B 比 E 高约 0.7V → 导通 → 灯亮。</li>
+          <li><b>PNP：</b>B 比 E 低约 0.7V → 导通 → 灯亮。</li>
+        </ul>
+      </div>
+    </aside>
+
+    <main class="main">
+      <svg id="viz" viewBox="0 0 1050 760" aria-label="NPN PNP 三极管开灯交互动画">
+        <defs>
+          <marker id="arrowRed" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#e5484d"/></marker>
+          <marker id="arrowBlue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#2f80ed"/></marker>
+          <filter id="glow"><feGaussianBlur stdDeviation="7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+
+        <text id="title" x="35" y="42" font-size="30" font-weight="900" fill="#154f91">NPN 低端开关实验</text>
+        <text id="sub" x="35" y="74" font-size="16" fill="#607083">电源 → 灯泡 → C → E → GND</text>
+
+        <!-- power rails -->
+        <line x1="110" y1="130" x2="930" y2="130" stroke="#314b68" stroke-width="5"/>
+        <line x1="110" y1="655" x2="930" y2="655" stroke="#314b68" stroke-width="5"/>
+        <text x="65" y="137" font-size="20" font-weight="800" fill="#314b68">+5V</text>
+        <text x="55" y="662" font-size="20" font-weight="800" fill="#314b68">GND</text>
+
+        <!-- lamp -->
+        <g id="lampGroup">
+          <line id="lampLeadTop" x1="760" y1="130" x2="760" y2="205" stroke="#314b68" stroke-width="5"/>
+          <circle id="lampGlow" cx="760" cy="265" r="64" fill="#ffd166" opacity="0" filter="url(#glow)"/>
+          <circle cx="760" cy="265" r="48" fill="#fff7d6" stroke="#314b68" stroke-width="5"/>
+          <path d="M730 235 L790 295 M790 235 L730 295" stroke="#e1a918" stroke-width="6" stroke-linecap="round"/>
+          <text id="lampText" x="760" y="335" text-anchor="middle" font-size="20" font-weight="900" fill="#7b5b00">灯泡：灭</text>
+          <line id="lampLeadBottom" x1="760" y1="313" x2="760" y2="385" stroke="#314b68" stroke-width="5"/>
+        </g>
+
+        <!-- transistor symbol -->
+        <g id="transistor">
+          <line x1="600" y1="390" x2="675" y2="390" stroke="#29425f" stroke-width="6" stroke-linecap="round"/>
+          <line x1="685" y1="330" x2="685" y2="515" stroke="#29425f" stroke-width="6" stroke-linecap="round"/>
+          <line id="upperBranch" x1="685" y1="355" x2="760" y2="405" stroke="#29425f" stroke-width="6" stroke-linecap="round"/>
+          <line id="lowerBranch" x1="685" y1="485" x2="760" y2="545" stroke="#29425f" stroke-width="6" stroke-linecap="round"/>
+          <path id="symbolArrow" d="M720 505 L755 538" stroke="#e5484d" stroke-width="5" fill="none" marker-end="url(#arrowRed)"/>
+          <text x="570" y="382" font-size="22" font-weight="900">B</text>
+          <text id="cText" x="775" y="405" font-size="22" font-weight="900">C</text>
+          <text id="eText" x="775" y="555" font-size="22" font-weight="900">E</text>
+        </g>
+
+        <!-- fixed wiring -->
+        <line id="wireFromLamp" x1="760" y1="385" x2="760" y2="405" stroke="#314b68" stroke-width="5"/>
+        <line id="wireToGround" x1="760" y1="545" x2="760" y2="655" stroke="#314b68" stroke-width="5"/>
+
+        <!-- base source -->
+        <rect x="155" y="330" width="250" height="140" rx="16" fill="#f6faff" stroke="#cfe0f2" stroke-width="2"/>
+        <text x="180" y="365" font-size="20" font-weight="900" fill="#29425f">基极控制源</text>
+        <text id="baseVoltageText" x="180" y="400" font-size="19" fill="#154f91">VB = 0.0 V</text>
+        <text id="baseConditionText" x="180" y="432" font-size="16" fill="#607083">B-E 未达到正向导通条件</text>
+        <line x1="405" y1="390" x2="600" y2="390" stroke="#314b68" stroke-width="5"/>
+        <rect x="470" y="370" width="50" height="40" rx="6" fill="#fff" stroke="#314b68" stroke-width="3"/>
+        <text x="495" y="397" text-anchor="middle" font-size="15" font-weight="800">RB</text>
+
+        <!-- internal EB mini PN diagram -->
+        <rect x="120" y="505" width="400" height="120" rx="16" fill="#fbfdff" stroke="#dbe6f2"/>
+        <text x="145" y="535" font-size="18" font-weight="900" fill="#29425f">发射结 E-B 放大观察</text>
+        <rect id="miniE" x="155" y="555" width="120" height="45" rx="7" fill="#dbe9ff" stroke="#7ea7e6"/>
+        <rect id="miniB" x="285" y="555" width="120" height="45" rx="7" fill="#ffe2cc" stroke="#ffb16b"/>
+        <text id="miniEText" x="215" y="584" text-anchor="middle" font-size="20" font-weight="900">E = N</text>
+        <text id="miniBText" x="345" y="584" text-anchor="middle" font-size="20" font-weight="900">B = P</text>
+        <path id="ebArrow" d="M340 610 L220 610" stroke="#e5484d" stroke-width="4" fill="none" marker-end="url(#arrowRed)"/>
+        <text id="ebArrowText" x="280" y="642" text-anchor="middle" font-size="15" fill="#b83238">传统电流：B(P) → E(N)</text>
+
+        <!-- conventional current path -->
+        <path id="currentPath" d="M760 135 L760 205 M760 320 L760 385 M760 405 L725 380 M730 500 L760 545 L760 645" stroke="#e5484d" stroke-width="6" fill="none" marker-end="url(#arrowRed)" opacity="0" stroke-linecap="round"/>
+        <text id="currentLabel" x="805" y="475" font-size="18" font-weight="900" fill="#b83238" opacity="0">传统电流 I</text>
+
+        <!-- electron path -->
+        <path id="electronPath" d="M785 620 C815 560,815 500,760 460 C705 420,705 355,760 315 C810 280,810 220,785 165" stroke="#2f80ed" stroke-width="4" fill="none" stroke-dasharray="8 9" opacity="0" marker-end="url(#arrowBlue)"/>
+        <text id="electronLabel" x="865" y="580" font-size="17" fill="#2468bb" opacity="0">电子 e⁻ 方向</text>
+
+        <!-- moving carriers -->
+        <g id="particles"></g>
+
+        <!-- labels -->
+        <rect x="545" y="585" width="430" height="62" rx="12" fill="#fff6f6" stroke="#ffd2d4"/>
+        <text id="whyText1" x="565" y="612" font-size="16" fill="#8d2f34">NPN：E=N，B=P；箭头沿 P → N</text>
+        <text id="whyText2" x="565" y="637" font-size="16" fill="#8d2f34">所以 B(P) → E(N)，也就是“向外”</text>
+      </svg>
+
+      <div class="kpi">
+        <div class="box"><div class="small">发射极 VE</div><div class="n" id="ve">0.0 V</div></div>
+        <div class="box"><div class="small">基极 VB</div><div class="n" id="vb">0.0 V</div></div>
+        <div class="box"><div class="small">VBE = VB - VE</div><div class="n" id="vbe">0.0 V</div></div>
+        <div class="box"><div class="small">灯泡状态</div><div class="n" id="lampKpi">灭</div></div>
+      </div>
+
+      <div class="explain">
+        <div class="card">
+          <h3>你应该先观察什么？</h3>
+          <ol>
+            <li>先把类型保持在 <b>NPN</b>。</li>
+            <li>把基极滑块从 0V 慢慢往上拖。</li>
+            <li>当 <b>VB 比 VE 高约 0.7V</b> 后，看灯泡、电流、电子动画一起出现。</li>
+            <li>再切换 PNP，观察控制逻辑完全反过来。</li>
+          </ol>
+        </div>
+        <div class="card">
+          <h3>当前原理</h3>
+          <div class="big" id="summary">NPN：B 高于 E 才导通</div>
+          <p id="summaryP">NPN 的发射极 E 接近 0V。基极 B 被抬高到约 0.7V 以上时，B-E 发射结正向偏置，三极管开始导通，传统电流从 +5V → 灯泡 → C → E → GND。</p>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const state={type:'NPN',control:0,speed:1,running:true,t:0,demo:false,demoDir:1};
+const svgNS='http://www.w3.org/2000/svg';
+const particles=[];
+
+function carrier(kind,phase){
+  const g=document.createElementNS(svgNS,'g');
+  const c=document.createElementNS(svgNS,'circle'); c.setAttribute('r',7); c.setAttribute('fill',kind==='electron'?'#2f80ed':'#ff9f43');
+  const tx=document.createElementNS(svgNS,'text'); tx.setAttribute('font-size','11'); tx.setAttribute('font-weight','900'); tx.setAttribute('text-anchor','middle'); tx.setAttribute('fill','#fff'); tx.textContent=kind==='electron'?'e':'h';
+  g.appendChild(c);g.appendChild(tx);$('particles').appendChild(g);particles.push({g,kind,phase});
+}
+for(let i=0;i<6;i++){carrier('electron',i/6);carrier('hole',(i+0.5)/6)}
+
+function lerp(a,b,t){return a+(b-a)*t}
+function isOn(){
+  if(state.type==='NPN') return state.control>=0.65;
+  return state.control<=4.35;
+}
+function brightness(){
+  if(state.type==='NPN') return Math.max(0,Math.min(1,(state.control-0.55)/0.8));
+  return Math.max(0,Math.min(1,(4.45-state.control)/0.8));
+}
+function pathPoint(kind,t){
+  // approximate visual path around the circuit/transistor
+  if(state.type==='NPN'){
+    if(kind==='electron'){
+      // E -> C -> lamp -> +5V, opposite current
+      const pts=[[760,640],[760,540],[720,500],[720,390],[760,405],[760,320],[760,205],[760,135]];
+      return interpPolyline(pts,t);
+    } else {
+      const pts=[[760,135],[760,205],[760,320],[760,405],[720,390],[720,500],[760,540],[760,640]];
+      return interpPolyline(pts,t);
+    }
+  } else {
+    if(kind==='electron'){
+      // opposite of conventional current
+      const pts=[[760,640],[760,545],[720,500],[720,390],[760,405],[760,320],[760,205],[760,135]];
+      return interpPolyline(pts,t);
+    } else {
+      const pts=[[760,135],[760,205],[760,320],[760,405],[720,390],[720,500],[760,545],[760,640]];
+      return interpPolyline(pts,t);
+    }
+  }
+}
+function interpPolyline(pts,t){
+  const segs=pts.length-1; const p=Math.min(.999999,t)*segs; const i=Math.floor(p); const u=p-i;
+  return {x:lerp(pts[i][0],pts[i+1][0],u),y:lerp(pts[i][1],pts[i+1][1],u)};
+}
+function drawParticles(){
+  const on=isOn();
+  particles.forEach(p=>{
+    if(!on){p.g.style.display='none';return}
+    p.g.style.display='block';
+    let tt=(state.t*0.00045*state.speed+p.phase)%1;
+    if(p.kind==='electron') tt=1-tt; // electron opposite conventional current
+    const pt=pathPoint(p.kind,tt);
+    p.g.setAttribute('transform',`translate(${pt.x},${pt.y})`);
+  })
+}
+
+function update(){
+  const npn=state.type==='NPN'; const on=isOn(); const b=brightness();
+  const VE=npn?0:5; const VB=state.control; const VBE=VB-VE;
+  $('controlLabel').textContent=npn?'基极电压 VB（相对 GND）':'基极电压 VB（相对 GND）';
+  $('controlValue').textContent=VB.toFixed(1)+' V'; $('speedValue').textContent=state.speed.toFixed(1)+'×';
+  $('baseVoltageText').textContent='VB = '+VB.toFixed(1)+' V'; $('ve').textContent=VE.toFixed(1)+' V'; $('vb').textContent=VB.toFixed(1)+' V'; $('vbe').textContent=VBE.toFixed(1)+' V';
+  $('lampKpi').textContent=on?'亮':'灭'; $('lampText').textContent='灯泡：'+(on?'亮':'灭'); $('lampGlow').setAttribute('opacity',on?String(0.18+0.6*b):'0');
+  $('currentPath').setAttribute('opacity',on?'1':'0'); $('currentLabel').setAttribute('opacity',on?'1':'0'); $('electronPath').setAttribute('opacity',on?'0.8':'0'); $('electronLabel').setAttribute('opacity',on?'1':'0');
+
+  if(npn){
+    $('title').textContent='NPN 低端开关实验'; $('sub').textContent='电源 → 灯泡 → C → E → GND';
+    $('cText').textContent='C'; $('eText').textContent='E';
+    $('symbolArrow').setAttribute('d','M720 505 L755 538');
+    $('wireFromLamp').setAttribute('x1','760');$('wireFromLamp').setAttribute('y1','385');$('wireFromLamp').setAttribute('x2','760');$('wireFromLamp').setAttribute('y2','405');
+    $('wireToGround').setAttribute('x1','760');$('wireToGround').setAttribute('y1','545');$('wireToGround').setAttribute('x2','760');$('wireToGround').setAttribute('y2','655');
+    $('miniEText').textContent='E = N'; $('miniBText').textContent='B = P';
+    $('miniE').setAttribute('fill','#dbe9ff');$('miniB').setAttribute('fill','#ffe2cc');
+    $('ebArrow').setAttribute('d','M340 610 L220 610'); $('ebArrowText').textContent='传统电流：B(P) → E(N)';
+    $('whyText1').textContent='NPN：E=N，B=P；箭头沿 P → N'; $('whyText2').textContent='所以 B(P) → E(N)，也就是“向外”';
+    $('stateText').textContent='NPN '+(on?'导通，灯亮':'截止，灯灭');
+    $('stateExplain').textContent=on?'B 比 E 高约 0.7V，B-E 发射结正向导通。':'NPN 的 E 接地。只有当 B 比 E 高约 0.7V 左右时，B-E 发射结才明显正向导通。';
+    $('baseConditionText').textContent=on?'B-E 已正向导通':'B-E 未达到正向导通条件';
+    $('summary').textContent='NPN：B 高于 E 才导通';
+    $('summaryP').textContent='NPN 的发射极 E 接近 0V。基极 B 抬高到约 0.7V 以上时，B-E 发射结正向偏置，三极管导通，传统电流从 +5V → 灯泡 → C → E → GND。电子运动方向与传统电流相反。';
+  } else {
+    $('title').textContent='PNP 高端开关实验'; $('sub').textContent='电源 → E → C → 灯泡 → GND';
+    $('symbolArrow').setAttribute('d','M755 538 L720 505');
+    $('miniEText').textContent='E = P'; $('miniBText').textContent='B = N';
+    $('miniE').setAttribute('fill','#ffe2cc');$('miniB').setAttribute('fill','#dbe9ff');
+    $('ebArrow').setAttribute('d','M220 610 L340 610'); $('ebArrowText').textContent='传统电流：E(P) → B(N)';
+    $('whyText1').textContent='PNP：E=P，B=N；箭头沿 P → N'; $('whyText2').textContent='所以 E(P) → B(N)，也就是“向内”';
+    $('stateText').textContent='PNP '+(on?'导通，灯亮':'截止，灯灭');
+    $('stateExplain').textContent=on?'E 在 +5V，而 B 被拉低约 0.7V 以上，B-E 发射结正向导通。':'PNP 的 E 接 +5V。只有当 B 比 E 低约 0.7V 左右时，B-E 发射结才明显正向导通。';
+    $('baseConditionText').textContent=on?'B 比 E 低，发射结已正向导通':'B 未比 E 低到足够程度';
+    $('summary').textContent='PNP：B 低于 E 才导通';
+    $('summaryP').textContent='PNP 的发射极 E 接近 +5V。把基极 B 拉低到约 4.3V 或更低时，B-E 发射结正向偏置，三极管导通，传统电流从 +5V → E → C → 灯泡 → GND。';
+  }
+  drawParticles();
+}
+
+$('type').addEventListener('change',e=>{state.type=e.target.value;state.control=state.type==='NPN'?0:5;$('control').value=state.control;update()});
+$('control').addEventListener('input',e=>{state.control=parseFloat(e.target.value);update()});
+$('speed').addEventListener('input',e=>{state.speed=parseFloat(e.target.value);update()});
+$('toggle').addEventListener('click',()=>{state.running=!state.running;$('toggle').textContent=state.running?'暂停动画':'继续动画'});
+$('demo').addEventListener('click',()=>{state.demo=!state.demo;$('demo').textContent=state.demo?'停止演示':'自动演示'});
+$('reset').addEventListener('click',()=>{state.type='NPN';state.control=0;state.speed=1;state.running=true;state.demo=false;$('type').value='NPN';$('control').value=0;$('speed').value=1;$('toggle').textContent='暂停动画';$('demo').textContent='自动演示';update()});
+
+let last=0;
+function animate(ts){
+  if(state.running) state.t=ts;
+  if(state.demo && ts-last>80){
+    last=ts; state.control += state.demoDir*0.08;
+    if(state.control>=5){state.control=5;state.demoDir=-1}
+    if(state.control<=0){state.control=0;state.demoDir=1}
+    $('control').value=state.control; update();
+  }
+  drawParticles(); requestAnimationFrame(animate);
+}
+update();requestAnimationFrame(animate);
+</script>
+</body>
+</html>

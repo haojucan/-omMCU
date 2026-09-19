@@ -13,39 +13,10 @@
     document.head.appendChild(icon);
   }
 
-  const categories = [
-    { id: "electronics", no: "01", icon: "V", title: "电学基础", desc: "从电压、电流和电阻建立电路直觉。" },
-    { id: "transistor", no: "02", icon: "Q", title: "晶体管", desc: "观察 NPN、PNP 与 MOSFET 的工作区。" },
-    { id: "c-language", no: "03", icon: "C", title: "C 语言", desc: "用二进制理解求余与位运算。" },
-    { id: "8051", no: "04", icon: "51", title: "51 单片机", desc: "GPIO、定时器与 UART 的动态推演。" },
-    { id: "stm32", no: "05", icon: "S", title: "STM32", desc: "从寄存器到 HAL 的进阶路线。" },
-    { id: "freertos", no: "06", icon: "RT", title: "FreeRTOS", desc: "任务、调度、队列与同步。" },
-    { id: "pcb", no: "07", icon: "P", title: "PCB / AD", desc: "从原理图到 PCB 输出的完整流程。" }
-  ];
-
-  const topics = {
-    electronics: [
-      { id: "voltage", title: "电压", desc: "用两个电势点理解电势差。" },
-      { id: "current", title: "电流", desc: "调节电压和电阻，观察电荷流动速度。" },
-      { id: "resistor", title: "电阻", desc: "通过欧姆定律联动计算 V、I、R。" }
-    ],
-    transistor: [
-      { id: "npn", title: "NPN 三极管", desc: "改变 VB、VE、VC，判断截止、放大和饱和。" },
-      { id: "pnp", title: "PNP 三极管", desc: "反向思考电势关系与常规电流方向。" },
-      { id: "mosfet", title: "N 沟道 MOSFET", desc: "观察 VGS、VDS 与工作区之间的关系。" }
-    ],
-    "c-language": [
-      { id: "binary", title: "二进制", desc: "用 8 个 bit 组成 0～255。" },
-      { id: "modulo", title: "求余 %", desc: "把除法拆成商和余数。" },
-      { id: "bitwise", title: "位运算", desc: "逐位观察 &、|、^、~ 和移位。" }
-    ],
-    "8051": [
-      { id: "gpio", title: "GPIO 端口", desc: "点击 bit，实时组成 P1 端口值。" },
-      { id: "timer0", title: "Timer0 定时", desc: "根据晶振、机器周期和定时时长计算初值。" },
-      { id: "timer2", title: "Timer2 溢出", desc: "观察 16 位重装、计数和溢出频率。" },
-      { id: "uart", title: "UART Mode 1", desc: "理解 Timer2 溢出率、分频与波特率。" }
-    ]
-  };
+  // The builder discovers lessons from folders; new standalone HTML needs no renderer.
+  const categories = window.EMBEDDED_CATALOG?.categories || [];
+  const esc = value => String(value ?? "").replace(/[&<>"']/g, c =>
+    ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
 
   const pageInfo = {
     voltage: ["电压不是一个点的属性", "电压是两个位置之间的电势差。拖动 VA 与 VB，观察方向和大小。", "electronics"],
@@ -76,13 +47,13 @@
         <p class="side-label">学习目录</p>
         <nav class="nav-list">
           <a class="nav-link ${page === "home" ? "active" : ""}" href="${href("index.html")}"><span class="nav-icon">⌂</span><span>学习首页</span></a>
-          ${categories.map(c => `<a class="nav-link ${currentCategory?.id === c.id ? "active" : ""}" href="${href(`${c.id}/index.html`)}"><span class="nav-icon">${c.icon}</span><span>${c.title}</span></a>`).join("")}
+          ${categories.map(c => `<a class="nav-link ${currentCategory?.id === c.id ? "active" : ""}" href="${esc(href(c.url))}"><span class="nav-icon">${esc(c.icon)}</span><span>${esc(c.title)}</span></a>`).join("")}
         </nav>
       </aside>`;
   }
 
   function shell(content, title, parent) {
-    const crumb = page === "home" ? "总览" : parent ? `${parent} / <span>${title}</span>` : `<span>${title}</span>`;
+    const crumb = page === "home" ? "总览" : parent ? `${esc(parent)} / <span>${esc(title)}</span>` : `<span>${esc(title)}</span>`;
     body.innerHTML = `
       <a class="skip-link" href="#main">跳到主要内容</a>
       <div class="site-shell">
@@ -112,9 +83,9 @@
 
   function homePage() {
     const cards = categories.map(c => `
-      <a class="topic-card" href="${href(`${c.id}/index.html`)}">
-        <span class="number">MODULE ${c.no}</span><span class="arrow">↗</span>
-        <h3>${c.title}</h3><p>${c.desc}</p>
+      <a class="topic-card" href="${esc(href(c.url))}">
+        <span class="number">MODULE ${esc(c.no)}</span><span class="arrow">↗</span>
+        <h3>${esc(c.title)}</h3><p>${esc(c.desc)}</p><span class="tag">${c.lessons.length} 个课程</span>
       </a>`).join("");
     shell(`
       <section class="hero">
@@ -141,12 +112,12 @@
   };
 
   function categoryPage(category) {
-    const list = topics[category.id];
-    const cards = list ? list.map((t, i) => `
-      <a class="topic-card" href="${t.id}.html"><span class="number">LESSON ${String(i + 1).padStart(2, "0")}</span><span class="arrow">↗</span><h3>${t.title}</h3><p>${t.desc}</p></a>`).join("")
-      : futureModules[category.id].map((name, i) => `<article class="topic-card disabled"><span class="number">ROADMAP ${String(i + 1).padStart(2, "0")}</span><span class="tag">待扩展</span><h3>${name}</h3><p>已经预留这个章节的位置，后续可以继续添加交互页面。</p></article>`).join("");
+    const list = category.lessons;
+    const cards = list.length ? list.map((t, i) => `
+      <article class="topic-card"><span class="number">LESSON ${String(i + 1).padStart(2, "0")}</span><h3><a href="${esc(href(t.url))}">${esc(t.title)}</a></h3><p>${esc(t.desc)}</p><div class="actions"><a class="button" href="${esc(href(t.url))}">打开课程</a><a class="button secondary" href="${esc(href(t.url))}" download>下载 HTML</a></div></article>`).join("")
+      : (Object.hasOwn(futureModules, category.id) ? futureModules[category.id] : []).map((name, i) => `<article class="topic-card disabled"><span class="number">ROADMAP ${String(i + 1).padStart(2, "0")}</span><span class="tag">待扩展</span><h3>${esc(name)}</h3><p>已经预留这个章节的位置，后续可以继续添加交互页面。</p></article>`).join("") || `<p class="note">暂无课程。把完整 HTML 放入 ${esc(category.id)}/，下次发布时会自动加入这里。</p>`;
     shell(`
-      <header class="page-head"><p class="eyebrow">MODULE ${category.no}</p><h1>${category.title}</h1><p>${category.desc}</p></header>
+      <header class="page-head"><p class="eyebrow">MODULE ${esc(category.no)}</p><h1>${esc(category.title)}</h1><p>${esc(category.desc)}</p></header>
       <section class="topic-grid">${cards}</section>
       <section class="panel" style="margin-top:20px"><h2>建议学习方式</h2><div class="concept-flow"><div class="concept-step"><strong>1</strong><small>先拖动参数</small></div><div class="concept-step"><strong>2</strong><small>观察结果变化</small></div><div class="concept-step"><strong>3</strong><small>再回看公式</small></div></div></section>`, category.title);
   }
@@ -154,13 +125,13 @@
   function lessonBase(info, demo, explanation, links) {
     const category = categories.find(c => c.id === info[2]);
     shell(`
-      <header class="page-head"><p class="eyebrow">INTERACTIVE LESSON</p><h1>${info[0]}</h1><p>${info[1]}</p></header>
+      <header class="page-head"><p class="eyebrow">INTERACTIVE LESSON</p><h1>${info[0]}</h1><p>${info[1]}</p><div class="actions"><a class="button secondary" href="${esc(location.href.split('#')[0])}" download>下载本课 HTML</a></div></header>
       <div class="lesson-layout">
         <div>
           <section class="panel" id="experiment"><h2>动手实验</h2>${demo}</section>
           <section class="panel" id="principle"><h2>抓住核心</h2>${explanation}</section>
         </div>
-        <aside class="panel side-index"><h3>本页导航</h3><a href="#experiment">动手实验</a><a href="#principle">核心原理</a>${links || ""}<a href="index.html">返回${category.title}</a></aside>
+        <aside class="panel side-index"><h3>本页导航</h3><a href="#experiment">动手实验</a><a href="#principle">核心原理</a>${links || ""}<a href="index.html">返回${esc(category.title)}</a></aside>
       </div>`, info[0], category.title);
   }
 
@@ -270,7 +241,10 @@
 
   const renderers = { voltage: voltageLesson, current: currentLesson, resistor: resistorLesson, npn: () => transistorLesson("npn"), pnp: () => transistorLesson("pnp"), mosfet: mosfetLesson, binary: binaryLesson, modulo: moduloLesson, bitwise: bitwiseLesson, gpio: gpioLesson, timer0: timer0Lesson, timer2: timer2Lesson, uart: uartLesson };
 
-  if (page === "home") homePage();
+  if (!categories.length) {
+    body.textContent = "目录尚未生成，请运行 node scripts/build-catalog.js，再打开 _site/index.html。线上请检查 GitHub Actions 是否构建成功。";
+  }
+  else if (page === "home") homePage();
   else if (categories.some(c => c.id === page)) categoryPage(categories.find(c => c.id === page));
   else if (renderers[page]) renderers[page]();
 })();

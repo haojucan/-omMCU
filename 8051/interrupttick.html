@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>嵌入式 C 非阻塞定时器 · 交互式学习</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#111827; --panel2:#172033; --text:#e5e7eb;
+    --muted:#94a3b8; --line:#334155; --good:#22c55e; --warn:#f59e0b;
+    --bad:#ef4444; --accent:#38bdf8; --violet:#a78bfa;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text)}
+  .wrap{display:grid;grid-template-columns:270px 1fr;min-height:100vh}
+  aside{position:sticky;top:0;height:100vh;padding:24px 18px;border-right:1px solid var(--line);background:#0b1220;overflow:auto}
+  main{padding:28px;max-width:1300px;width:100%;margin:auto}
+  h1{font-size:32px;margin:0 0 8px}
+  h2{margin-top:36px;font-size:24px}
+  h3{font-size:18px}
+  p{line-height:1.8;color:#dbeafe}
+  .muted{color:var(--muted)}
+  nav a{display:block;color:#cbd5e1;text-decoration:none;padding:9px 10px;border-radius:9px;margin:4px 0}
+  nav a:hover{background:#172033;color:white}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;margin:14px 0;box-shadow:0 12px 30px rgba(0,0,0,.16)}
+  .grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+  .stat{padding:14px;border-radius:14px;background:var(--panel2);border:1px solid #26354d}
+  .stat b{display:block;font-size:26px;margin-top:8px}
+  .good{color:var(--good)} .warn{color:var(--warn)} .accent{color:var(--accent)} .violet{color:var(--violet)}
+  code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  pre{background:#020617;padding:18px;border-radius:14px;overflow:auto;border:1px solid #26354d;line-height:1.7}
+  .line-hi{background:rgba(56,189,248,.13);display:block;margin:0 -18px;padding:0 18px}
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  button{border:0;border-radius:10px;padding:10px 14px;background:#1e293b;color:white;cursor:pointer;font-weight:600}
+  button.primary{background:#0369a1}
+  button:hover{filter:brightness(1.12)}
+  input[type=range]{width:220px}
+  select,input[type=number]{background:#0b1220;color:white;border:1px solid #334155;border-radius:8px;padding:8px}
+  .row{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin:10px 0}
+  .ledwrap{display:flex;align-items:center;gap:16px}
+  .led{width:60px;height:60px;border-radius:50%;background:#334155;box-shadow:inset 0 0 14px rgba(0,0,0,.7)}
+  .led.on{background:#22c55e;box-shadow:0 0 26px rgba(34,197,94,.65), inset 0 0 12px rgba(255,255,255,.35)}
+  .timeline{position:relative;height:110px;margin-top:16px;background:#0b1220;border-radius:12px;border:1px solid #26354d;overflow:hidden}
+  .axis{position:absolute;left:28px;right:28px;top:54px;height:2px;background:#64748b}
+  .marker{position:absolute;top:36px;width:3px;height:38px;background:var(--accent)}
+  .lastmarker{position:absolute;top:40px;width:3px;height:30px;background:var(--violet)}
+  .ticklabel{position:absolute;top:75px;transform:translateX(-50%);font-size:12px;color:#94a3b8}
+  .explain{font-size:17px;background:#0b1220;padding:14px;border-left:4px solid var(--accent);border-radius:8px}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:10px;border-bottom:1px solid #26354d;text-align:left}
+  th{color:#bfdbfe}
+  .pill{display:inline-block;padding:3px 8px;border-radius:999px;background:#1e293b;font-size:12px}
+  .flow{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;align-items:center;gap:12px}
+  .box{padding:14px;border:1px solid #334155;border-radius:12px;background:#0b1220;text-align:center}
+  .arrow{font-size:26px;color:var(--accent)}
+  .compare{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .bar{height:22px;border-radius:8px;background:#1e293b;overflow:hidden;border:1px solid #334155}
+  .fill{height:100%;width:0;background:#38bdf8;transition:width .15s}
+  .busy{background:#ef4444}
+  .free{background:#22c55e}
+  @media(max-width:900px){.wrap{grid-template-columns:1fr}aside{display:none}.grid{grid-template-columns:1fr 1fr}.compare{grid-template-columns:1fr}.flow{grid-template-columns:1fr}.arrow{transform:rotate(90deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <aside>
+    <h3>学习目录</h3>
+    <nav>
+      <a href="#idea">1. 核心思想</a>
+      <a href="#roles">2. 两个变量分别干什么</a>
+      <a href="#sim">3. 交互式模拟器</a>
+      <a href="#timeline">4. 时间轴理解</a>
+      <a href="#why">5. 为什么要保存上次时间</a>
+      <a href="#overflow">6. 溢出回绕</a>
+      <a href="#blocking">7. 对比阻塞延时</a>
+      <a href="#multi">8. 多任务雏形</a>
+    </nav>
+    <p class="muted" style="margin-top:22px">目标：真正理解<br><code>now - last >= interval</code></p>
+  </aside>
+
+  <main>
+    <section id="idea">
+      <h1>非阻塞定时器：把“等 500ms”变成“检查是否过去 500ms”</h1>
+      <p>你这段代码本质上是一个 <b>软件定时器</b>。它不让 CPU 停下来等待，而是不断比较“当前时间”和“上次动作时间”的差值。</p>
+      <pre><code>if(time0IntNum - time0Led1intNum &gt;= 500)
+{
+    time0Led1intNum = time0IntNum;
+    P10 = !P10;
+}</code></pre>
+
+      <div class="flow">
+        <div class="box">当前时间<br><b class="accent">time0IntNum</b></div>
+        <div class="arrow">−</div>
+        <div class="box">上次动作时间<br><b class="violet">time0Led1intNum</b></div>
+        <div class="arrow">=</div>
+        <div class="box">已经过去多久<br><b class="good">elapsed</b></div>
+      </div>
+    </section>
+
+    <section id="roles">
+      <h2>两个变量，不是两个“同时计数”的变量</h2>
+      <div class="card">
+        <table>
+          <tr><th>变量</th><th>角色</th><th>生活中的类比</th></tr>
+          <tr><td><code>time0IntNum</code></td><td>持续增加的系统 tick</td><td>墙上的钟 / 汽车总里程</td></tr>
+          <tr><td><code>time0Led1intNum</code></td><td>上一次 LED 翻转时保存的快照</td><td>“上次保养时里程”</td></tr>
+          <tr><td><code>time0IntNum - time0Led1intNum</code></td><td>距离上次动作过去多久</td><td>当前里程 − 上次保养里程</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <section id="sim">
+      <h2>交互式模拟器</h2>
+      <div class="card">
+        <div class="row">
+          <label>触发阈值：
+            <input id="interval" type="range" min="5" max="100" value="20">
+            <span id="intervalVal">20</span> tick
+          </label>
+          <label>每次步进：
+            <select id="stepSize">
+              <option value="1">1 tick</option>
+              <option value="2">2 tick</option>
+              <option value="5">5 tick</option>
+              <option value="10">10 tick</option>
+            </select>
+          </label>
+          <label>播放速度：
+            <input id="speed" type="range" min="30" max="500" value="160">
+          </label>
+        </div>
+
+        <div class="controls">
+          <button class="primary" id="stepBtn">单步 +1</button>
+          <button id="playBtn">▶ 自动播放</button>
+          <button id="resetBtn">重置</button>
+          <button id="jumpBtn">直接跳到触发前 1 tick</button>
+        </div>
+
+        <div class="grid" style="margin-top:16px">
+          <div class="stat"><span class="muted">当前时间</span><b class="accent" id="nowVal">0</b><small>time0IntNum</small></div>
+          <div class="stat"><span class="muted">上次动作</span><b class="violet" id="lastVal">0</b><small>time0Led1intNum</small></div>
+          <div class="stat"><span class="muted">差值 elapsed</span><b class="good" id="elapsedVal">0</b><small>now - last</small></div>
+          <div class="stat"><span class="muted">条件</span><b id="condVal">FALSE</b><small>elapsed ≥ interval</small></div>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+          <div class="ledwrap">
+            <div id="led" class="led"></div>
+            <div>
+              <div>P10 = <b id="p10Val">0</b></div>
+              <div class="muted">每次条件成立，执行 <code>P10 = !P10</code></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="liveExplain" class="explain"></div>
+
+        <h3>当前代码执行状态</h3>
+        <pre id="codeBox"><code>
+<span id="c1">if(time0IntNum - time0Led1intNum &gt;= interval)</span>
+{
+    <span id="c2">time0Led1intNum = time0IntNum;</span>
+    <span id="c3">P10 = !P10;</span>
+}</code></pre>
+
+        <h3>最近执行记录</h3>
+        <table>
+          <thead><tr><th>当前 now</th><th>上次 last</th><th>差值</th><th>触发?</th><th>P10</th></tr></thead>
+          <tbody id="logBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="timeline">
+      <h2>时间轴：为什么“保存当前时间”后又能继续计时？</h2>
+      <div class="card">
+        <p>关键是：<b>赋值只发生在触发的那一个瞬间</b>。下一次 Timer0 中断到来时，<code>time0IntNum</code> 又继续增加，但 <code>time0Led1intNum</code> 不会自动增加。</p>
+        <div class="timeline">
+          <div class="axis"></div>
+          <div id="nowMarker" class="marker"></div>
+          <div id="lastMarker" class="lastmarker"></div>
+          <div class="ticklabel" style="left:4%">0</div>
+          <div class="ticklabel" style="left:50%">时间轴</div>
+          <div class="ticklabel" style="left:96%">→</div>
+        </div>
+        <p class="muted"><span class="accent">蓝线</span> = 当前时间，<span class="violet">紫线</span> = 上次触发时间。</p>
+      </div>
+    </section>
+
+    <section id="why">
+      <h2>为什么必须写 <code>last = now</code>？</h2>
+      <div class="compare">
+        <div class="card">
+          <h3>错误思路：只判断绝对时间</h3>
+          <pre><code>if(time0IntNum &gt;= 500)
+{
+    P10 = !P10;
+}</code></pre>
+          <p>一旦 <code>time0IntNum</code> 到 500，以后的 501、502、503……全部仍然满足条件，于是 LED 会疯狂翻转。</p>
+        </div>
+        <div class="card">
+          <h3>正确思路：比较时间差</h3>
+          <pre><code>if(now - last &gt;= interval)
+{
+    last = now;
+    P10 = !P10;
+}</code></pre>
+          <p>触发后把 <code>last</code> 更新到当前时间，差值立即回到 0 附近，开始新的计时窗口。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="overflow">
+      <h2>进阶：无符号整数溢出为什么还能工作？</h2>
+      <div class="card">
+        <p>下面用 8 位无符号整数演示（0～255）。真实项目可能是 16 位或 32 位，道理一样。</p>
+        <div class="row">
+          <label><input id="overflowMode" type="checkbox"> 开启 8 位回绕模拟</label>
+          <button id="overflowPreset">设置到 250 附近</button>
+        </div>
+        <div class="grid">
+          <div class="stat"><span>now</span><b class="accent" id="ovNow">0</b></div>
+          <div class="stat"><span>last</span><b class="violet" id="ovLast">0</b></div>
+          <div class="stat"><span>差值（模 256）</span><b class="good" id="ovDiff">0</b></div>
+          <div class="stat"><span>说明</span><b style="font-size:16px" id="ovText">普通模式</b></div>
+        </div>
+        <p>例如：<code>last = 250</code>，之后 now 溢出到 <code>4</code>。按无符号 8 位模运算：</p>
+        <pre><code>(4 - 250) mod 256 = 10</code></pre>
+        <p>所以“经过了 10 个 tick”仍然可以算对。</p>
+      </div>
+    </section>
+
+    <section id="blocking">
+      <h2>阻塞延时 vs 非阻塞定时</h2>
+      <div class="compare">
+        <div class="card">
+          <h3>阻塞 delay</h3>
+          <pre><code>delay_ms(500);
+P10 = !P10;</code></pre>
+          <div class="bar"><div class="fill busy" style="width:100%"></div></div>
+          <p><span class="pill">CPU</span> 500ms 内主要在“等待”，主循环其它任务难以及时执行。</p>
+        </div>
+        <div class="card">
+          <h3>非阻塞</h3>
+          <pre><code>if(now - last &gt;= 500)
+{
+    last = now;
+    P10 = !P10;
+}</code></pre>
+          <div class="bar"><div class="fill free" style="width:8%"></div></div>
+          <p><span class="pill">CPU</span> 只做一次快速比较，剩余时间可以扫描按键、串口、刷新数码管。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="multi">
+      <h2>它其实已经是“简易多任务调度”的雏形</h2>
+      <pre><code>if(now - lastLed &gt;= 500) {
+    lastLed = now;
+    LedTask();
+}
+
+if(now - lastKey &gt;= 20) {
+    lastKey = now;
+    KeyScan();
+}
+
+if(now - lastDisplay &gt;= 5) {
+    lastDisplay = now;
+    DisplayRefresh();
+}</code></pre>
+      <p>同一个系统 tick，可以同时服务多个不同周期的任务。以后学习 STM32 的 <code>HAL_GetTick()</code>、SysTick、FreeRTOS Tick、软件定时器时，你会再次看到同样的思想。</p>
+    </section>
+  </main>
+</div>
+
+<script>
+let now = 0, last = 0, p10 = 0, timer = null;
+const $ = id => document.getElementById(id);
+function interval(){ return +$("interval").value; }
+function maxVal(){ return $("overflowMode").checked ? 256 : 1000000000; }
+function diff(a,b){
+  if($("overflowMode").checked) return (a - b + 256) % 256;
+  return a - b;
+}
+function setCodeHighlight(triggered){
+  ["c1","c2","c3"].forEach(id => $(id).classList.remove("line-hi"));
+  if(triggered){ $("c2").classList.add("line-hi"); $("c3").classList.add("line-hi"); }
+  else $("c1").classList.add("line-hi");
+}
+function render(triggered=false){
+  const d = diff(now,last);
+  $("nowVal").textContent = now;
+  $("lastVal").textContent = last;
+  $("elapsedVal").textContent = d;
+  $("condVal").textContent = d >= interval() ? "TRUE" : "FALSE";
+  $("condVal").className = d >= interval() ? "good" : "";
+  $("p10Val").textContent = p10;
+  $("led").classList.toggle("on", !!p10);
+  $("intervalVal").textContent = interval();
+
+  if(triggered){
+    $("liveExplain").innerHTML =
+      `✅ 条件成立：差值已经达到 <b>${interval()}</b> tick。<br>` +
+      `先把 <code>time0Led1intNum</code> 更新为当前时间 <b>${last}</b>，然后执行 <code>P10 = !P10</code>。新的计时窗口从这里开始。`;
+  } else {
+    $("liveExplain").innerHTML =
+      `当前：<b>${now}</b> − 上次：<b>${last}</b> = <b>${d}</b> tick。` +
+      `还${d >= interval() ? "已经" : "没有"}达到阈值 <b>${interval()}</b>。` +
+      (d < interval() ? `还差 <b>${interval()-d}</b> tick。` : "");
+  }
+
+  const scale = Math.max(interval()*2, 30);
+  const np = Math.min(96, 4 + (diff(now,0)%scale)/scale*92);
+  const lp = Math.min(96, 4 + (diff(last,0)%scale)/scale*92);
+  $("nowMarker").style.left = np+"%";
+  $("lastMarker").style.left = lp+"%";
+
+  $("ovNow").textContent = now;
+  $("ovLast").textContent = last;
+  $("ovDiff").textContent = d;
+  $("ovText").textContent = $("overflowMode").checked ? "8 位 unsigned 模 256" : "普通模式";
+  setCodeHighlight(triggered);
+}
+function appendLog(beforeNow,beforeLast,d,triggered){
+  const tr = document.createElement("tr");
+  tr.innerHTML = `<td>${beforeNow}</td><td>${beforeLast}</td><td>${d}</td><td>${triggered?"✅ 是":"否"}</td><td>${p10}</td>`;
+  $("logBody").prepend(tr);
+  while($("logBody").children.length>12) $("logBody").removeChild($("logBody").lastChild);
+}
+function step(custom=1){
+  const mod = maxVal();
+  now = (now + custom) % mod;
+  const beforeNow=now, beforeLast=last;
+  let d = diff(now,last);
+  let triggered = false;
+  if(d >= interval()){
+    last = now;
+    p10 = p10 ? 0 : 1;
+    triggered = true;
+  }
+  appendLog(beforeNow,beforeLast,d,triggered);
+  render(triggered);
+}
+$("stepBtn").onclick=()=>step(+$("stepSize").value);
+$("playBtn").onclick=()=>{
+  if(timer){ clearInterval(timer); timer=null; $("playBtn").textContent="▶ 自动播放"; return; }
+  $("playBtn").textContent="⏸ 暂停";
+  timer=setInterval(()=>step(+$("stepSize").value), +$("speed").value);
+};
+$("resetBtn").onclick=()=>{
+  now=0; last=0; p10=0; $("logBody").innerHTML=""; render(false);
+};
+$("jumpBtn").onclick=()=>{
+  const mod=maxVal();
+  now=(last + interval()-1)%mod;
+  render(false);
+};
+$("interval").oninput=()=>render(false);
+$("speed").oninput=()=>{
+  if(timer){ clearInterval(timer); timer=setInterval(()=>step(+$("stepSize").value), +$("speed").value); }
+};
+$("overflowMode").onchange=()=>{
+  now%=256; last%=256; render(false);
+};
+$("overflowPreset").onclick=()=>{
+  $("overflowMode").checked=true;
+  last=250; now=250; p10=0; $("logBody").innerHTML=""; render(false);
+};
+render(false);
+</script>
+</body>
+</html>

@@ -47,6 +47,7 @@ test("drop-in HTML: discover optional metadata, nested lessons, URL encoding and
   assert.equal(lessons[0].title, "第一课");
   assert.equal(lessons[1].desc, "测试说明");
   assert.equal(lessons[1].url, "8051/%E4%B8%AD%E6%96%AD%20%231.html");
+  assert.equal(lessons[1].openUrl, "reader.html?lesson=8051%2F%E4%B8%AD%E6%96%AD%20%231.html");
   assert.equal(lessons.find(l => l.path.endsWith("unnamed.html")).title, "unnamed");
   assert.ok(lessons.some(l => l.path.endsWith("nested/index.html")));
 });
@@ -67,6 +68,12 @@ test("build: standalone pages, untouched custom HTML, deterministic rebuild and 
   assert.ok(!/<link\b[^>]*\brel="stylesheet"/i.test(lesson));
   assert.equal(fs.readFileSync(path.join(first.output, "8051/custom.html"), "utf8"), independent);
   assert.ok(fs.existsSync(path.join(root, "8051/index.html")));
+  assert.ok(fs.existsSync(path.join(root, "reader.html")));
+  assert.equal(first.catalog.categories[0].lessons.find(l => l.path === "8051/gpio.html").openUrl, "8051/gpio.html");
+  const reader = fs.readFileSync(path.join(root, "reader.html"), "utf8");
+  assert.ok(reader.includes('data-page="reader"'));
+  assert.ok(!/<script\b[^>]*\bsrc=/i.test(reader));
+  assert.ok(!/<link\b[^>]*\brel="stylesheet"/i.test(reader));
   assert.ok(!fs.existsSync(path.join(first.output, "scripts")));
   assert.ok(!fs.existsSync(path.join(first.output, "8051/category.json")));
   buildSite(root, true);
@@ -95,9 +102,90 @@ test("rendered categories: links and downloads are relative, text cannot inject 
   for (const script of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) vm.runInContext(script[1], context);
   onReady();
   assert.ok(body.innerHTML.includes('href="../8051/new.html" download'));
+  assert.ok(body.innerHTML.includes('href="../reader.html?lesson=8051%2Fnew.html"'));
   assert.ok(body.innerHTML.includes("&lt;img src=x onerror=alert(1)&gt;"));
   assert.ok(!body.innerHTML.includes("<img src=x"));
   assert.ok(!body.innerHTML.includes('href="/8051/'));
+});
+
+function renderReader(html, search) {
+  let onReady, redirected;
+  const controls = new Map();
+  function element() {
+    const classes = new Set();
+    return {
+      attributes: {}, listeners: {}, textContent: "",
+      setAttribute(k, v) {this.attributes[k] = v;},
+      addEventListener(k, v) {this.listeners[k] = v;},
+      classList: {
+        add(name) {classes.add(name);},
+        contains(name) {return classes.has(name);},
+        toggle(name, force) {
+          const on = typeof force === "boolean" ? force : !classes.has(name);
+          if (on) classes.add(name); else classes.delete(name);
+          return on;
+        }
+      }
+    };
+  }
+  const body = Object.assign(element(), {dataset: {page: "reader", root: "."}, innerHTML: ""});
+  const document = {
+    body, title: "",
+    querySelector() {return true;},
+    getElementById(id) {
+      if (!controls.has(id)) controls.set(id, element());
+      return controls.get(id);
+    },
+    addEventListener(name, fn) {if (name === "DOMContentLoaded") onReady = fn;}
+  };
+  const context = vm.createContext({document, URLSearchParams, window: {location: {search, replace(url) {redirected = url;}}}});
+  for (const script of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) vm.runInContext(script[1], context);
+  onReady();
+  return {document, body, controls, redirected};
+}
+
+test("reader preserves site navigation, isolates custom content and downloads the original file", t => {
+  const {root, put} = fixture(t);
+  const custom = '<title>&lt;课程&gt;</title><style>.sidebar{position:fixed}</style><nav class="sidebar"><a href="#demo">自己的目录</a></nav><section id="demo">实验</section><script>throw new Error("Only run inside the lesson document");</script>';
+  const file = "8051/子目录/中断 #1.htm";
+  put(file, custom);
+  const {output} = buildSite(root);
+  const html = fs.readFileSync(path.join(output, "reader.html"), "utf8");
+  const {body, document, controls} = renderReader(html, `?lesson=${encodeURIComponent(file)}`);
+  assert.ok(body.innerHTML.includes('href="./index.html">⌂ 返回首页</a>'));
+  assert.ok(body.innerHTML.includes('href="./8051/index.html">← 51 单片机</a>'));
+  assert.ok(body.innerHTML.includes('aria-label="主要导航"'));
+  const encoded = "./8051/%E5%AD%90%E7%9B%AE%E5%BD%95/%E4%B8%AD%E6%96%AD%20%231.htm";
+  assert.ok(body.innerHTML.includes(`src="${encoded}" title="&lt;课程&gt;"`));
+  assert.ok(body.innerHTML.includes(`href="${encoded}" download`));
+  assert.ok(!body.innerHTML.includes("自己的目录")); // Stays in the child document.
+  assert.equal(fs.readFileSync(path.join(output, file), "utf8"), custom);
+  assert.equal(document.title, "<课程>｜嵌入式学习站");
+  const collapse = controls.get("readerSidebarToggle");
+  collapse.listeners.click({currentTarget: collapse});
+  assert.ok(body.classList.contains("reader-wide"));
+  assert.equal(collapse.attributes["aria-expanded"], "false");
+  collapse.listeners.click({currentTarget: collapse});
+  assert.ok(!body.classList.contains("reader-wide"));
+  assert.equal(collapse.attributes["aria-expanded"], "true");
+  const menu = controls.get("menuButton");
+  menu.listeners.click();
+  assert.ok(controls.get("sidebar").classList.contains("open"));
+  controls.get("overlay").listeners.click();
+  assert.ok(!controls.get("sidebar").classList.contains("open"));
+});
+
+test("reader rejects missing or arbitrary URLs, and avoids nesting built-in navigation", t => {
+  const {root, put} = fixture(t);
+  put("8051/gpio.html", '<html><head><title>GPIO</title><script defer src="../assets/site.js"></script></head><body data-page="gpio"></body></html>');
+  const {output} = buildSite(root);
+  const html = fs.readFileSync(path.join(output, "reader.html"), "utf8");
+  for (const query of ["", "?lesson=missing.html", "?lesson=https%3A%2F%2Fexample.org", "?lesson=javascript%3Aalert(1)", "?lesson=..%2Fsecret.html"]) {
+    const {body} = renderReader(html, query);
+    assert.ok(body.innerHTML.includes("未找到这节课程"));
+    assert.ok(!body.innerHTML.includes("<iframe"));
+  }
+  assert.equal(renderReader(html, "?lesson=8051%2Fgpio.html").redirected, "./8051/gpio.html");
 });
 
 test("catalog escapes closing script sequences and output overwrite is guarded", t => {

@@ -34,7 +34,11 @@
     uart: ["UART Mode 1 波特率", "Timer2 提供高速节拍，UART 再分频形成每秒发送的 bit 数。", "8051"]
   };
 
-  const currentCategory = categories.find(c => c.id === page) || categories.find(c => pageInfo[page]?.[2] === c.id);
+  // Only catalogued files can be opened; a query parameter is never used as an iframe URL.
+  const requestedLesson = page === "reader" ? new URLSearchParams(window.location.search).get("lesson") : null;
+  const readerCategory = requestedLesson ? categories.find(c => c.lessons.some(l => l.path === requestedLesson)) : null;
+  const readerLesson = readerCategory?.lessons.find(l => l.path === requestedLesson);
+  const currentCategory = readerCategory || categories.find(c => c.id === page) || categories.find(c => pageInfo[page]?.[2] === c.id);
   const href = path => `${root}/${path}`.replace(/\/\.\//g, "/");
 
   function sidebar() {
@@ -46,8 +50,8 @@
         </a>
         <p class="side-label">学习目录</p>
         <nav class="nav-list">
-          <a class="nav-link ${page === "home" ? "active" : ""}" href="${href("index.html")}"><span class="nav-icon">⌂</span><span>学习首页</span></a>
-          ${categories.map(c => `<a class="nav-link ${currentCategory?.id === c.id ? "active" : ""}" href="${esc(href(c.url))}"><span class="nav-icon">${esc(c.icon)}</span><span>${esc(c.title)}</span></a>`).join("")}
+          <a class="nav-link ${page === "home" ? "active" : ""}" ${page === "home" ? 'aria-current="page"' : ""} href="${href("index.html")}"><span class="nav-icon">⌂</span><span>学习首页</span></a>
+          ${categories.map(c => `<a class="nav-link ${currentCategory?.id === c.id ? "active" : ""}" ${currentCategory?.id === c.id ? 'aria-current="page"' : ""} href="${esc(href(c.url))}"><span class="nav-icon">${esc(c.icon)}</span><span>${esc(c.title)}</span></a>`).join("")}
         </nav>
       </aside>`;
   }
@@ -61,7 +65,7 @@
         <div class="overlay" id="overlay"></div>
         <div class="main-wrap">
           <header class="topbar">
-            <button class="menu-button" id="menuButton" aria-label="打开目录" aria-expanded="false">☰</button>
+            <button class="menu-button" id="menuButton" aria-label="打开网站目录" aria-controls="sidebar" aria-expanded="false">☰</button>
             <div class="crumbs">学习站 / ${crumb}</div>
             <div class="top-status"><span class="status-dot"></span><span>纯静态 · 可离线运行</span></div>
           </header>
@@ -76,6 +80,7 @@
       side.classList.toggle("open", open);
       overlay.classList.toggle("show", open);
       menu?.setAttribute("aria-expanded", String(open));
+      menu?.setAttribute("aria-label", open ? "关闭网站目录" : "打开网站目录");
     };
     menu?.addEventListener("click", () => toggle());
     overlay?.addEventListener("click", () => toggle(false));
@@ -114,12 +119,37 @@
   function categoryPage(category) {
     const list = category.lessons;
     const cards = list.length ? list.map((t, i) => `
-      <article class="topic-card"><span class="number">LESSON ${String(i + 1).padStart(2, "0")}</span><h3><a href="${esc(href(t.url))}">${esc(t.title)}</a></h3><p>${esc(t.desc)}</p><div class="actions"><a class="button" href="${esc(href(t.url))}">打开课程</a><a class="button secondary" href="${esc(href(t.url))}" download>下载 HTML</a></div></article>`).join("")
+      <article class="topic-card"><span class="number">LESSON ${String(i + 1).padStart(2, "0")}</span><h3><a href="${esc(href(t.openUrl || t.url))}">${esc(t.title)}</a></h3><p>${esc(t.desc)}</p><div class="actions"><a class="button" href="${esc(href(t.openUrl || t.url))}">打开课程</a><a class="button secondary" href="${esc(href(t.url))}" download>下载 HTML</a></div></article>`).join("")
       : (Object.hasOwn(futureModules, category.id) ? futureModules[category.id] : []).map((name, i) => `<article class="topic-card disabled"><span class="number">ROADMAP ${String(i + 1).padStart(2, "0")}</span><span class="tag">待扩展</span><h3>${esc(name)}</h3><p>已经预留这个章节的位置，后续可以继续添加交互页面。</p></article>`).join("") || `<p class="note">暂无课程。把完整 HTML 放入 ${esc(category.id)}/，下次发布时会自动加入这里。</p>`;
     shell(`
       <header class="page-head"><p class="eyebrow">MODULE ${esc(category.no)}</p><h1>${esc(category.title)}</h1><p>${esc(category.desc)}</p></header>
       <section class="topic-grid">${cards}</section>
       <section class="panel" style="margin-top:20px"><h2>建议学习方式</h2><div class="concept-flow"><div class="concept-step"><strong>1</strong><small>先拖动参数</small></div><div class="concept-step"><strong>2</strong><small>观察结果变化</small></div><div class="concept-step"><strong>3</strong><small>再回看公式</small></div></div></section>`, category.title);
+  }
+
+  function readerPage() {
+    if (!readerLesson) {
+      shell(`<section class="panel"><h1>未找到这节课程</h1><p>课程可能已经移动或删除，请从学习目录重新选择。</p><a class="button" href="${href("index.html")}">返回学习首页</a></section>`, "课程阅读");
+      return;
+    }
+    // Built-in lessons already have the site navigation; do not nest that navigation.
+    if (readerLesson.openUrl === readerLesson.url) {
+      window.location.replace(href(readerLesson.url));
+      return;
+    }
+    body.classList.add("reader-page");
+    document.title = `${readerLesson.title}｜嵌入式学习站`;
+    shell(`
+      <nav class="reader-toolbar" aria-label="课程操作">
+        <div class="reader-links"><a href="${href("index.html")}">⌂ 返回首页</a><a href="${esc(href(readerCategory.url))}">← ${esc(readerCategory.title)}</a></div>
+        <div class="reader-actions"><button type="button" id="readerSidebarToggle" aria-controls="sidebar" aria-expanded="true">收起网站目录</button><a href="${esc(href(readerLesson.url))}" target="_blank" rel="noopener" title="在新标签页打开原始课程">单独打开 ↗</a><a class="reader-download" href="${esc(href(readerLesson.url))}" download>下载 HTML</a></div>
+      </nav>
+      <iframe class="reader-frame" id="lessonFrame" src="${esc(href(readerLesson.url))}" title="${esc(readerLesson.title)}" allow="fullscreen"></iframe>`, readerLesson.title, readerCategory.title);
+    document.getElementById("readerSidebarToggle").addEventListener("click", event => {
+      const hidden = body.classList.toggle("reader-wide");
+      event.currentTarget.textContent = hidden ? "展开网站目录" : "收起网站目录";
+      event.currentTarget.setAttribute("aria-expanded", String(!hidden));
+    });
   }
 
   function lessonBase(info, demo, explanation, links) {
@@ -245,6 +275,7 @@
     body.textContent = "目录尚未生成，请运行 node scripts/build-catalog.js，再打开 _site/index.html。线上请检查 GitHub Actions 是否构建成功。";
   }
   else if (page === "home") homePage();
+  else if (page === "reader") readerPage();
   else if (categories.some(c => c.id === page)) categoryPage(categories.find(c => c.id === page));
   else if (renderers[page]) renderers[page]();
 })();

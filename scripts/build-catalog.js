@@ -10,6 +10,7 @@ const MANAGED_START = "<!-- embedded:managed:start -->";
 const MANAGED_END = "<!-- embedded:managed:end -->";
 const GENERATED_MARKER = ".embedded-build-output";
 const GENERATED_CATALOG = "assets/catalog.generated.js";
+const READER_PATH = "reader.html";
 
 function decodeEntities(text) {
   const named = {amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " "};
@@ -94,12 +95,14 @@ function scanCatalog(root) {
       lessons: []
     };
     for (const relative of files) {
-      const {meta, title} = metadata(fs.readFileSync(path.join(dir, relative), "utf8"));
+      const html = fs.readFileSync(path.join(dir, relative), "utf8");
+      const {meta, title} = metadata(html);
       if (meta["lesson-hidden"] === "true") continue;
       const rawPath = `${entry.name}/${relative}`;
       category.lessons.push({
         path: rawPath,
         url: urlPath(rawPath),
+        openUrl: isManaged(html) ? urlPath(rawPath) : `${READER_PATH}?lesson=${encodeURIComponent(rawPath)}`,
         title: meta["lesson-title"] || title || path.posix.basename(relative).replace(/\.html?$/i, ""),
         desc: meta["lesson-description"] || meta.description || "点击打开课程，或下载单个 HTML 文件。",
         order: finiteOrder(meta["lesson-order"])
@@ -120,6 +123,10 @@ function catalogSource(catalog) {
 
 function managedIndex(category) {
   return `<!doctype html>\n<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="${escapeHtml(category.desc)}"><title>${escapeHtml(category.title)}｜嵌入式学习站</title><link rel="stylesheet" href="../assets/style.css"><script defer src="../assets/site.js"></script></head><body data-page="${escapeHtml(category.id)}" data-root=".."><noscript>请开启 JavaScript。</noscript></body></html>\n`;
+}
+
+function managedReader() {
+  return '<!doctype html>\n<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>课程阅读｜嵌入式学习站</title><link rel="stylesheet" href="assets/style.css"><script defer src="assets/site.js"></script></head><body data-page="reader" data-root="."><noscript>请开启 JavaScript，或<a href="index.html">返回学习首页</a>。</noscript></body></html>\n';
 }
 
 function isManaged(html) {
@@ -182,6 +189,10 @@ function buildSite(root, sync = false) {
     }
   }
   copyPublic(root);
+  if (!fs.existsSync(path.join(output, READER_PATH))) {
+    fs.writeFileSync(path.join(output, READER_PATH), bundlePage(managedReader(), css, js, catalogJs));
+    managed.push(READER_PATH);
+  }
   for (const category of catalog.categories) {
     if (!fs.existsSync(path.join(output, category.path))) {
       fs.mkdirSync(path.dirname(path.join(output, category.path)), {recursive: true});

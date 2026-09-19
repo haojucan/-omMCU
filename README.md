@@ -7,9 +7,20 @@
 1. 把一个**完整、可独立打开的 HTML** 放入分类目录，例如 `8051/interrupt.html`。
 2. 图片、脚本和样式尽量都内嵌在 HTML 中。不要复制旧版只有 `data-page` 的空页面壳；新课正文和交互应在这个 HTML 里。
 3. 提交到 `main`，等待 Actions 中的 `Build catalog and deploy Pages` 显示绿色。
-4. 分类页自动出现课程卡片，卡片有“打开课程”和“下载 HTML”。
+4. 分类页自动出现课程卡片，卡片有“打开课程”和“下载 HTML”。“打开课程”会保留学习站导航，在内容区展示你上传的页面。
 
 不需要再修改 `topics`、`pageInfo`、`renderers` 或 `assets/site.js`。新增的独立 HTML 保留自己的排版和脚本，不会被站点样式覆盖。
+
+## 新页面自带目录时，如何返回首页
+
+从分类卡片点击“打开课程”，会进入 `reader.html?lesson=...` 阅读页：
+
+- 左侧仍是学习站的分类导航，顶部有“返回首页”和当前分类入口。
+- 课程在独立内容区显示，它自己的章节目录、样式和交互照常使用。
+- 电脑上可点击“收起网站目录”，为课程留出更多空间；手机上点左上角菜单打开网站目录。
+- “下载 HTML”下载你上传的原始单文件；“单独打开”在新标签页打开原始页面。
+
+分享带有网站导航的课程，请复制阅读页的地址。直接访问 `8051/xxx.html` 或打开下载文件，显示的仍是原始独立页面。两个目录的样式互不影响；不需要修改新课的 HTML 来适配站点。
 
 第一次使用我在 GitHub 上提交的改造前，在本地项目目录先运行 `git pull --ff-only origin main`，把改动取回来；如提示本地改动冲突，先停下来处理，不要强推覆盖。
 
@@ -70,6 +81,8 @@ git push origin main
 2. 把 `Build and deployment → Source` 改为 **GitHub Actions**（不再用 `Deploy from a branch`）。
 3. 进入 `Actions → Build catalog and deploy Pages → Run workflow`，选择 `main` 运行一次。
 4. 之后向 `main` 上传或 push HTML 时，会自动生成目录、合并 CSS/JS 并发布。
+
+如果文件已经上传，目录却没有新增课程，请首先检查这项 Source 设置。若 Actions 同时出现 `pages build and deployment` 和 `Build catalog and deploy Pages`，旧的分支发布可能覆盖自动生成的目录；统一使用 **GitHub Actions**，然后重新运行 `Build catalog and deploy Pages`。浏览器用 `Ctrl + F5` 刷新线上网站。
 
 如果 Settings 页面没有权限，需要仓库管理员设置。不要添加个人访问令牌，工作流只使用 GitHub 提供的短期权限。
 

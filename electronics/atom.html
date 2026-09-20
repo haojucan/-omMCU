@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>原子结构交互式学习：质子・中子・电子</title>
+<style>
+:root{--bg:#0b0d10;--panel:#171a1f;--panel2:#20242a;--text:#f3f5f7;--muted:#9da5af;--line:#343a43;--blue:#4d9cff;--red:#ff4d5d;--gray:#aeb5bd;--green:#55d69a;--yellow:#f4c95d}
+*{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at 50% 0,#20242b 0,#0b0d10 55%);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 20px 50px}.hero{display:flex;justify-content:space-between;gap:20px;align-items:end;margin-bottom:18px}.hero h1{font-size:30px;margin:0 0 8px}.hero p{margin:0;color:var(--muted)}
+.grid{display:grid;grid-template-columns:1.15fr .85fr;gap:18px}.card{background:rgba(23,26,31,.94);border:1px solid var(--line);border-radius:22px;box-shadow:0 16px 45px #0008;overflow:hidden}.visual{min-height:610px;display:flex;flex-direction:column}.visualHead{padding:22px 24px 0;display:flex;justify-content:space-between;gap:12px}.visualHead h2{margin:0;font-size:25px}.badge{display:inline-flex;align-items:center;gap:7px;padding:7px 11px;border:1px solid #3b414a;border-radius:999px;color:var(--muted);font-size:13px}.atomArea{flex:1;display:flex;align-items:center;justify-content:center;min-height:390px;position:relative}.atom{width:420px;height:420px;position:relative}.nucleus{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:112px;height:112px;border-radius:50%;background:#292d33;box-shadow:0 0 0 15px #292d3333,0 0 45px #000;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;align-content:center;padding:10px}.nucleus .p,.nucleus .n{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;margin:2px}.p{background:var(--red);color:white}.n{background:#9ba1a8;color:white}.orbit{position:absolute;border:1px solid #4a5058;border-radius:50%;left:50%;top:50%;transform:translate(-50%,-50%)}.e{position:absolute;width:19px;height:19px;border-radius:50%;background:var(--blue);color:white;font-size:11px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 13px #4d9cff66}.legend{display:flex;justify-content:center;gap:25px;padding:5px 20px 22px;color:var(--muted);font-size:13px}.legend span{display:flex;align-items:center;gap:7px}.dot{width:15px;height:15px;border-radius:50%}.controls{padding:22px 24px;border-top:1px solid var(--line)}.control{margin-bottom:20px}.control:last-child{margin-bottom:0}.row{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}.row b{font-size:16px}.value{font-variant-numeric:tabular-nums;color:white;font-weight:700}.sub{font-size:12px;color:var(--muted);margin-top:5px}.range{width:100%;accent-color:var(--blue);cursor:pointer}.facts{padding:22px}.facts h2{margin:0 0 18px;font-size:21px}.fact{display:grid;grid-template-columns:145px 1fr;gap:10px;padding:14px 0;border-bottom:1px solid var(--line)}.fact:last-child{border-bottom:0}.label{color:var(--muted)}.big{font-size:19px;font-weight:700}.charge{font-weight:700}.charge.neutral{color:var(--green)}.charge.pos{color:var(--red)}.charge.neg{color:var(--blue)}
+.explain{margin-top:18px;padding:22px}.explain h2{margin:0 0 14px}.chain{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.step{background:var(--panel2);border:1px solid var(--line);border-radius:15px;padding:15px}.step strong{display:block;margin-bottom:7px}.step small{color:var(--muted);line-height:1.6}.tip{margin-top:16px;border-left:3px solid var(--yellow);padding:12px 14px;background:#f4c95d0c;color:#d7dbe0;line-height:1.7}.reset{border:1px solid var(--line);background:#22262c;color:#ddd;border-radius:10px;padding:8px 12px;cursor:pointer}.reset:hover{background:#2a2f36}
+@media(max-width:850px){.grid{grid-template-columns:1fr}.chain{grid-template-columns:1fr 1fr}.atom{transform:scale(.82)}}
+@media(max-width:520px){.chain{grid-template-columns:1fr}.atom{transform:scale(.67)}.fact{grid-template-columns:120px 1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <div><h1>原子结构：第一性原理交互学习</h1><p>拖动质子・中子・电子滑块，观察“元素、质量数、电荷、电子层”如何变化。</p></div>
+    <button class="reset" id="reset">恢复硅原子</button>
+  </div>
+
+  <div class="grid">
+    <section class="card visual">
+      <div class="visualHead">
+        <div><h2 id="title">硅（Si）</h2><div class="sub" id="subtitle">原子序数 14 · 第三周期 · IVA族</div></div>
+        <div class="badge" id="status">中性原子</div>
+      </div>
+      <div class="atomArea"><div class="atom" id="atom"></div></div>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--red)"></i>质子 +</span>
+        <span><i class="dot" style="background:var(--gray)"></i>中子 0</span>
+        <span><i class="dot" style="background:var(--blue)"></i>电子 −</span>
+      </div>
+      <div class="controls">
+        <div class="control"><div class="row"><b>质子数</b><span class="value" id="pv">14</span></div><input class="range" id="protons" type="range" min="1" max="118" value="14"><div class="sub">质子数决定“它是哪一种元素”。</div></div>
+        <div class="control"><div class="row"><b>中子数</b><span class="value" id="nv">14</span></div><input class="range" id="neutrons" type="range" min="0" max="180" value="14"><div class="sub">中子数改变质量数；同一元素可有不同同位素。</div></div>
+        <div class="control"><div class="row"><b>电子数</b><span class="value" id="ev">14</span></div><input class="range" id="electrons" type="range" min="0" max="118" value="14"><div class="sub">电子数与质子数的差决定净电荷。</div></div>
+      </div>
+    </section>
+
+    <aside class="card facts">
+      <h2>当前原子的“身份证”</h2>
+      <div class="fact"><div class="label">元素</div><div class="big" id="element">硅（Si）</div></div>
+      <div class="fact"><div class="label">原子序数 Z</div><div class="big" id="z">14</div></div>
+      <div class="fact"><div class="label">质量数 A</div><div class="big" id="mass">28</div></div>
+      <div class="fact"><div class="label">电子排布（简化）</div><div class="big" id="shells">2, 8, 4</div></div>
+      <div class="fact"><div class="label">最外层电子</div><div class="big" id="valence">4</div></div>
+      <div class="fact"><div class="label">净电荷</div><div class="big charge neutral" id="charge">0（中性）</div></div>
+      <div class="tip"><b>第一性原理：</b><br>质子数决定元素身份；中子数决定同位素/质量数；电子数决定原子是否带电，以及在简化模型中的电子层分布。</div>
+    </aside>
+  </div>
+
+  <section class="card explain">
+    <h2>拖动时，你实际上在改变什么？</h2>
+    <div class="chain">
+      <div class="step"><strong>① 改质子</strong><small>14 → 15，硅就变成磷。<br>因此：质子数 = 元素身份证。</small></div>
+      <div class="step"><strong>② 改中子</strong><small>14 → 16，仍然是硅，但质量数改变，成为不同同位素。</small></div>
+      <div class="step"><strong>③ 改电子</strong><small>14 → 13，质子多一个，变成 +1 离子。</small></div>
+      <div class="step"><strong>④ 看电子层</strong><small>电子数变化会改变各层电子分布；最外层电子与材料电学性质密切相关。</small></div>
+    </div>
+    <div class="tip">说明：电子层这里采用适合入门教学的“简化壳层模型”。真实原子中的电子由量子力学的轨道、能级和电子排布描述，不是简单的行星绕轨道模型。</div>
+  </section>
+</div>
+
+<script>
+const elements = [
+["氢","H"],["氦","He"],["锂","Li"],["铍","Be"],["硼","B"],["碳","C"],["氮","N"],["氧","O"],["氟","F"],["氖","Ne"],
+["钠","Na"],["镁","Mg"],["铝","Al"],["硅","Si"],["磷","P"],["硫","S"],["氯","Cl"],["氩","Ar"],["钾","K"],["钙","Ca"],
+["钪","Sc"],["钛","Ti"],["钒","V"],["铬","Cr"],["锰","Mn"],["铁","Fe"],["钴","Co"],["镍","Ni"],["铜","Cu"],["锌","Zn"],
+["镓","Ga"],["锗","Ge"],["砷","As"],["硒","Se"],["溴","Br"],["氪","Kr"],["铷","Rb"],["锶","Sr"],["钇","Y"],["锆","Zr"],
+["铌","Nb"],["钼","Mo"],["锝","Tc"],["钌","Ru"],["铑","Rh"],["钯","Pd"],["银","Ag"],["镉","Cd"],["铟","In"],["锡","Sn"],
+["锑","Sb"],["碲","Te"],["碘","I"],["氙","Xe"],["铯","Cs"],["钡","Ba"],["镧","La"],["铈","Ce"],["镨","Pr"],["钕","Nd"],
+["钷","Pm"],["钐","Sm"],["铕","Eu"],["钆","Gd"],["铽","Tb"],["镝","Dy"],["钬","Ho"],["铒","Er"],["铥","Tm"],["镱","Yb"],
+["镥","Lu"],["铪","Hf"],["钽","Ta"],["钨","W"],["铼","Re"],["锇","Os"],["铱","Ir"],["铂","Pt"],["金","Au"],["汞","Hg"],
+["铊","Tl"],["铅","Pb"],["铋","Bi"],["钋","Po"],["砹","At"],["氡","Rn"],["钫","Fr"],["镭","Ra"],["锕","Ac"],["钍","Th"],
+["镤","Pa"],["铀","U"],["镎","Np"],["钚","Pu"],["镅","Am"],["锔","Cm"],["锫","Bk"],["锎","Cf"],["锿","Es"],["镄","Fm"],
+["钔","Md"],["锘","No"],["铹","Lr"],["𬬻","Rf"],["𬭊","Db"],["𬭳","Sg"],["𬭛","Bh"],["𬭶","Hs"],["鿏","Mt"],["鿔","Ds"],
+["鿭","Rg"],["鿫","Cn"],["鿷","Nh"],["鿹","Fl"],["镆","Mc"],["鿭","Lv"],["鿬","Ts"],["鿫","Og"]
+];
+const pEl=document.getElementById("protons"),nEl=document.getElementById("neutrons"),eEl=document.getElementById("electrons");
+function shellsFor(n){const caps=[2,8,18,32,32,18,8], out=[];let r=n;for(const c of caps){if(r<=0)break;const x=Math.min(r,c);out.push(x);r-=x}return out.length?out:[0]}
+function render(){
+  const p=+pEl.value,n=+nEl.value,e=+eEl.value;
+  const [name,sym]=elements[p-1]||["未知","?"], mass=p+n, q=p-e;
+  const shells=shellsFor(e), val=shells[shells.length-1]||0;
+  document.getElementById("pv").textContent=p;document.getElementById("nv").textContent=n;document.getElementById("ev").textContent=e;
+  document.getElementById("element").textContent=`${name}（${sym}）`;document.getElementById("title").textContent=`${name}（${sym}）`;
+  document.getElementById("subtitle").textContent=`原子序数 ${p} · 质子 ${p} · 中子 ${n} · 电子 ${e}`;
+  document.getElementById("z").textContent=p;document.getElementById("mass").textContent=mass;
+  document.getElementById("shells").textContent=shells.join(", ");document.getElementById("valence").textContent=val;
+  const ce=document.getElementById("charge");ce.className="big charge "+(q===0?"neutral":q>0?"pos":"neg");
+  ce.textContent=q===0?"0（中性）":`${q>0?"+":""}${q}（${q>0?"正离子":"负离子"}）`;
+  document.getElementById("status").textContent=q===0?"中性原子":(q>0?"正离子":"负离子");
+
+  const atom=document.getElementById("atom");atom.innerHTML="";
+  const maxR=190, step=34;
+  shells.forEach((count,i)=>{
+    const r=55+i*step;
+    const orbit=document.createElement("div");orbit.className="orbit";orbit.style.width=(r*2)+"px";orbit.style.height=(r*2)+"px";atom.appendChild(orbit);
+    for(let j=0;j<count;j++){
+      const a=(j/count)*Math.PI*2-Math.PI/2, x=210+Math.cos(a)*r-9.5, y=210+Math.sin(a)*r-9.5;
+      const el=document.createElement("div");el.className="e";el.textContent="−";el.style.left=x+"px";el.style.top=y+"px";atom.appendChild(el);
+    }
+  });
+  const nuc=document.createElement("div");nuc.className="nucleus";
+  const total=Math.min(p+n,34), pp=Math.min(p,total), nn=total-pp;
+  for(let i=0;i<pp;i++){const x=document.createElement("span");x.className="p";x.textContent="+";nuc.appendChild(x)}
+  for(let i=0;i<nn;i++){const x=document.createElement("span");x.className="n";x.textContent="n";nuc.appendChild(x)}
+  atom.appendChild(nuc);
+}
+[pEl,nEl,eEl].forEach(x=>x.addEventListener("input",render));
+document.getElementById("reset").addEventListener("click",()=>{pEl.value=14;nEl.value=14;eEl.value=14;render()});
+render();
+</script>
+</body>
+</html>
